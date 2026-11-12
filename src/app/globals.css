@@ -2,25 +2,90 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --surface: #f6f6f7;
+  --surface-2: #ececef;
+  --ink: #0b0b0f;
+  --ink-soft: #5d6068;
+  --line: #e4e4e8;
+  --accent: #2f5bff;
+  --accent-hover: #1f47e0;
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #d92d20;
+  --info: #0369a1;
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-geist-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--background);
+    color: var(--ink);
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  html {
+    scroll-behavior: smooth;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Readable long-form text for policy pages. */
+@layer components {
+  .legal { color: var(--ink-soft); line-height: 1.75; }
+  .legal h2 { margin-top: 2.5rem; font-size: 1.25rem; font-weight: 600; color: var(--ink); }
+  .legal h3 { margin-top: 1.5rem; font-weight: 600; color: var(--ink); }
+  .legal p, .legal ul, .legal ol { margin-top: 0.75rem; }
+  .legal ul { list-style: disc; padding-left: 1.25rem; }
+  .legal ol { list-style: decimal; padding-left: 1.25rem; }
+  .legal li { margin-top: 0.35rem; }
+  .legal strong { color: var(--ink); font-weight: 600; }
+  .legal a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .legal a:hover { color: var(--accent); }
+}
+
+/* Loading placeholder with a soft moving sheen. */
+@utility skeleton {
+  background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-sheen 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-sheen {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
