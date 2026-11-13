@@ -106,6 +106,12 @@ export type Database = {
         Update: { created_at?: string; full_name?: string | null; id?: string; phone?: string | null; role?: E["user_role"] };
         Relationships: [];
       };
+      print_jobs: {
+        Row: { created_at: string; details: string | null; id: string; image: string | null; order_id: string | null; order_item_id: string | null; order_number: string | null; paid: boolean; paid_at: string | null; printed_at: string | null; quantity: number; status: E["print_job_status"]; supplier_note: string | null; title: string; unit_cost: number | null; updated_at: string; variant: string | null };
+        Insert: { created_at?: string; details?: string | null; id?: string; image?: string | null; order_id?: string | null; order_item_id?: string | null; order_number?: string | null; paid?: boolean; paid_at?: string | null; printed_at?: string | null; quantity: number; status?: E["print_job_status"]; supplier_note?: string | null; title: string; unit_cost?: number | null; updated_at?: string; variant?: string | null };
+        Update: { created_at?: string; details?: string | null; id?: string; image?: string | null; order_id?: string | null; order_item_id?: string | null; order_number?: string | null; paid?: boolean; paid_at?: string | null; printed_at?: string | null; quantity?: number; status?: E["print_job_status"]; supplier_note?: string | null; title?: string; unit_cost?: number | null; updated_at?: string; variant?: string | null };
+        Relationships: [];
+      };
       settings: {
         Row: { cod_advance: "off" | "outside_dhaka" | "all"; max_print_colors: number; bkash_number: string | null; contact_email: string | null; contact_phone: string | null; facebook_url: string | null; free_shipping_over: number | null; id: number; nagad_number: string | null; payment_instructions: string; rocket_number: string | null; shipping_inside_dhaka: number; shipping_outside_dhaka: number; store_name: string; updated_at: string };
         Insert: { cod_advance?: "off" | "outside_dhaka" | "all"; max_print_colors?: number; bkash_number?: string | null; contact_email?: string | null; contact_phone?: string | null; facebook_url?: string | null; free_shipping_over?: number | null; id?: number; nagad_number?: string | null; payment_instructions?: string; rocket_number?: string | null; shipping_inside_dhaka?: number; shipping_outside_dhaka?: number; store_name?: string; updated_at?: string };
@@ -118,6 +124,11 @@ export type Database = {
       admin_phone_stats: { Args: { p_phones: string[] }; Returns: { phone: string; total: number; delivered: number; cancelled: number; blocked: boolean; block_reason: string | null }[] };
       admin_adjust_stock: { Args: { p_delta: number; p_note: string; p_reason: E["inventory_reason"]; p_variant: string }; Returns: number };
       admin_set_order_status: { Args: { p_note: string; p_order: string; p_status: E["order_status"] }; Returns: undefined };
+      admin_list_suppliers: { Args: never; Returns: { id: string; email: string; full_name: string | null }[] };
+      admin_send_order_to_print: { Args: { p_order: string }; Returns: number };
+      admin_set_supplier: { Args: { p_email: string; p_on: boolean }; Returns: undefined };
+      supplier_update_job: { Args: { p_job: string; p_status: E["print_job_status"] | null; p_unit_cost: number | null; p_note: string | null }; Returns: undefined };
+      is_supplier: { Args: never; Returns: boolean };
       can_review: { Args: { p_product: string }; Returns: boolean };
       submit_review: { Args: { p_product: string; p_rating: number; p_comment: string }; Returns: E["review_status"] };
       compute_coupon_discount: { Args: { p_code: string; p_subtotal: number; p_user: string }; Returns: { coupon_id: string; discount: number; error: string }[] };
@@ -137,10 +148,11 @@ export type Database = {
       inventory_reason: "order" | "restock" | "adjust" | "cancel";
       order_status: "pending" | "confirmed" | "printing" | "shipped" | "delivered" | "cancelled";
       payment_method: "cod" | "bkash" | "nagad" | "rocket";
+      print_job_status: "to_print" | "printing" | "printed" | "received" | "cancelled";
       payment_status: "unpaid" | "pending_verification" | "paid" | "rejected" | "refunded";
       review_status: "pending" | "approved" | "rejected";
       shipping_zone: "inside_dhaka" | "outside_dhaka";
-      user_role: "customer" | "admin";
+      user_role: "customer" | "admin" | "supplier";
     };
     CompositeTypes: { [_ in never]: never };
   };

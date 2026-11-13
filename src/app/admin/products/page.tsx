@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ImageIcon, Plus } from "lucide-react";
+import { ImageIcon, Plus, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge, ButtonLink, Card, PageTitle } from "@/components/ui";
 import { formatBDT } from "@/lib/utils";
@@ -28,7 +28,7 @@ export default async function ProductsPage() {
       </PageTitle>
 
       <Card className="overflow-x-auto p-0">
-        <table className="w-full min-w-[640px] text-left">
+        <table className="w-full min-w-[760px] text-left">
           <thead className="border-b border-line bg-surface text-xs font-medium text-ink-soft">
             <tr>
               <th className="px-4 py-3 font-medium">Product</th>
@@ -36,6 +36,9 @@ export default async function ProductsPage() {
               <th className="px-4 py-3 font-medium">Price</th>
               <th className="px-4 py-3 font-medium">Stock</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">
+                <span className="sr-only">Print</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -77,6 +80,13 @@ export default async function ProductsPage() {
                       <Badge color={p.is_active ? "success" : "neutral"}>{p.is_active ? "Live" : "Hidden"}</Badge>
                       {p.featured && <Badge color="accent">Featured</Badge>}
                     </div>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {vs.length > 0 && (
+                      <ButtonLink href={`/admin/supplier?product=${p.id}`} variant="secondary" size="sm">
+                        <Printer className="size-4" /> Print
+                      </ButtonLink>
+                    )}
                   </td>
                 </tr>
               );

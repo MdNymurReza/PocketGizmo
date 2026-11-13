@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge, Card } from "@/components/ui";
 import { ProductImage } from "@/components/shop/product-image";
 import { OrderActions } from "@/components/admin/order-actions";
+import { SendToPrint } from "@/components/admin/send-to-print";
 import { AdvancePanel, CustomerRisk } from "@/components/admin/customer-risk";
 import { ORDER_STATUS_COLOR, PAYMENT_STATUS_COLOR, PAYMENT_STATUS_LABEL } from "@/lib/orders";
 import { ZONE_LABEL } from "@/lib/bd";
@@ -24,6 +25,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
   if (!o) notFound();
   const { data: statsRows } = await supabase.rpc("admin_phone_stats", { p_phones: [o.customer_phone] });
   const stats = statsRows?.[0] ?? { total: 1, delivered: 0, cancelled: 0, blocked: false, block_reason: null };
+  const { count: printJobs } = await supabase.from("print_jobs").select("id", { count: "exact", head: true }).eq("order_id", o.id);
   const history = [...o.order_status_history].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   return (
@@ -36,6 +38,9 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
         <Badge color={ORDER_STATUS_COLOR[o.status]}>{STATUS_LABEL[o.status]}</Badge>
         <Badge color={PAYMENT_STATUS_COLOR[o.payment_status]}>{PAYMENT_STATUS_LABEL[o.payment_status]}</Badge>
         <span className="text-sm text-ink-soft">{formatDate(o.created_at)}</span>
+        <span className="ml-auto">
+          <SendToPrint orderId={o.id} sent={Boolean(printJobs)} cancelled={o.status === "cancelled"} />
+        </span>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">

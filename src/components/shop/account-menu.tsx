@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { LogOut, ShieldCheck, User } from "lucide-react";
+import { LogOut, Printer, ShieldCheck, User } from "lucide-react";
 import { logout } from "@/app/(shop)/(auth)/actions";
 import { buttonStyles } from "@/components/ui";
 import { ACCOUNT_LINKS } from "./account-nav";
 
 /** Header account button: a login link for guests, a dropdown menu for signed-in customers. */
-export function AccountMenu({ user }: { user: { name: string; email: string; isAdmin: boolean } | null }) {
+export function AccountMenu({ user }: { user: { name: string; email: string; isAdmin: boolean; isSupplier?: boolean } | null }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const path = usePathname();
@@ -75,6 +75,13 @@ export function AccountMenu({ user }: { user: { name: string; email: string; isA
                   </Link>
                 </li>
               ))}
+              {user.isSupplier && (
+                <li>
+                  <Link href="/supplier" className={row}>
+                    <Printer className="size-4 text-ink-soft" strokeWidth={1.75} /> Print jobs
+                  </Link>
+                </li>
+              )}
               {user.isAdmin && (
                 <li>
                   <Link href="/admin" className={row}>

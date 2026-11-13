@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge, Card, Input, PageTitle } from "@/components/ui";
+import { SendToPrint } from "@/components/admin/send-to-print";
 import {
   ADVANCE_STATUS_COLOR,
   ADVANCE_STATUS_LABEL,
@@ -65,6 +66,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   // Flag customers whose number has cancelled orders before or is blocked.
   const phones = [...new Set((orders ?? []).map((o) => o.customer_phone))];
   const { data: phoneStats } = phones.length ? await supabase.rpc("admin_phone_stats", { p_phones: phones }) : { data: [] };
+  // Which of these orders are already on the print list.
+  const orderIds = (orders ?? []).map((o) => o.id);
+  const { data: jobRows } = orderIds.length ? await supabase.from("print_jobs").select("order_id").in("order_id", orderIds) : { data: [] };
+  const onPrintList = new Set((jobRows ?? []).map((j) => j.order_id));
   const risk = new Map((phoneStats ?? []).map((s) => [s.phone, s]));
   const keyOf = (p: string) => p.replace(/\D/g, "").slice(-10);
   const pages = Math.max(1, Math.ceil((count ?? 0) / PAGE));
@@ -102,13 +107,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       </div>
 
       <Card className="overflow-x-auto p-0">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="border-b border-line bg-surface text-xs font-medium text-ink-soft">
             <tr>
               <th className="px-4 py-3 font-medium">Order</th>
               <th className="px-4 py-3 font-medium">Customer</th>
               <th className="px-4 py-3 font-medium">Payment</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Printing</th>
               <th className="px-4 py-3 text-right font-medium">Total</th>
             </tr>
           </thead>
@@ -146,6 +152,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 </td>
                 <td className="px-4 py-3">
                   <Badge color={ORDER_STATUS_COLOR[o.status]}>{STATUS_LABEL[o.status]}</Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <SendToPrint orderId={o.id} sent={onPrintList.has(o.id)} cancelled={o.status === "cancelled"} />
                 </td>
                 <td className="px-4 py-3 text-right">
                   <p className="font-medium tabular-nums">{formatBDT(o.total)}</p>

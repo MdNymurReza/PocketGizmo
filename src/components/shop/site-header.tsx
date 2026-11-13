@@ -44,8 +44,17 @@ export async function SiteHeader() {
                 Admin
               </Link>
             )}
+            {profile?.role === "supplier" && (
+              <Link href="/supplier" className={buttonStyles({ variant: "secondary", size: "sm", className: "mr-2 hidden sm:inline-flex" })}>
+                Print jobs
+              </Link>
+            )}
             <AccountMenu
-              user={user ? { name: profile?.full_name ?? "", email: user.email ?? "", isAdmin: profile?.role === "admin" } : null}
+              user={
+                user
+                  ? { name: profile?.full_name ?? "", email: user.email ?? "", isAdmin: profile?.role === "admin", isSupplier: profile?.role === "supplier" }
+                  : null
+              }
             />
             <CartButton />
           </div>

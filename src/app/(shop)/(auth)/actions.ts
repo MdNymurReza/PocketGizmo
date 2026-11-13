@@ -55,9 +55,15 @@ export async function login(_: AuthState, formData: FormData): Promise<AuthState
   if (!email || !password) return { error: "Enter your email and password" };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message === "Invalid login credentials" ? "Wrong email or password" : error.message };
-  redirect(safeNext(formData.get("next")));
+  const next = safeNext(formData.get("next"));
+  // The print supplier works from their own dashboard, so send them straight there.
+  if (next === "/account" && data.user) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single();
+    if (profile?.role === "supplier") redirect("/supplier");
+  }
+  redirect(next);
 }
 
 export async function forgotPassword(_: AuthState, formData: FormData): Promise<AuthState> {
