@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge, Card, EmptyState, PageTitle } from "@/components/ui";
 import { Stars } from "@/components/shop/stars";
 import { ReviewActions } from "@/components/admin/review-actions";
+import { ReviewPhotoList } from "@/components/shop/review-photos";
 import { cn, formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Reviews" };
@@ -30,7 +31,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
   const [{ data: reviews }, { count: pendingCount }] = await Promise.all([
     supabase
       .from("reviews")
-      .select("id, author_name, rating, comment, status, created_at, products(name, slug)")
+      .select("id, author_name, rating, comment, photos, status, created_at, products(name, slug)")
       .eq("status", tab)
       .order("created_at", { ascending: false })
       .limit(100),
@@ -83,6 +84,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
                 ) : (
                   <p className="text-ink-soft italic">Rating only, no comment.</p>
                 )}
+                <ReviewPhotoList photos={r.photos} author={r.author_name} />
                 <ReviewActions id={r.id} status={r.status} />
               </li>
             ))}

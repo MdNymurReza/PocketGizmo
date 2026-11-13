@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import { Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { Minus, Plus, ShoppingBag, Truck, X } from "lucide-react";
 import { DETAILS_MAX, cartSubtotal, useCart } from "@/lib/cart-store";
 import { useCartSync } from "@/lib/use-cart-sync";
 import { ButtonLink } from "@/components/ui";
 import { ProductImage } from "./product-image";
 import { formatBDT, variantLabel } from "@/lib/utils";
 
-export function CartView() {
+/** freeOver: order value from which delivery is free, if the store offers that. */
+export function CartView({ freeOver }: { freeOver: number | null }) {
   const { ready, synced } = useCartSync();
   const items = useCart((s) => s.items);
   const setQty = useCart((s) => s.setQty);
@@ -47,6 +48,7 @@ export function CartView() {
   }
 
   const subtotal = cartSubtotal(items);
+  const toFree = freeOver != null && freeOver > 0 ? Math.max(0, freeOver - subtotal) : null;
 
   return (
     <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_360px]">
@@ -104,6 +106,20 @@ export function CartView() {
 
       <section className="h-fit rounded-xl bg-surface p-6 lg:sticky lg:top-24" aria-labelledby="summary-heading">
         <h2 id="summary-heading" className="font-semibold">Order summary</h2>
+        {toFree != null && freeOver != null && (
+          <div className="mt-4 rounded-lg border border-line bg-white p-3 text-sm">
+            <p className="flex items-center gap-2 font-medium">
+              <Truck className={toFree === 0 ? "size-4 text-success" : "size-4 text-ink-soft"} />
+              {toFree === 0 ? "You get free delivery" : `Add ${formatBDT(toFree)} more for free delivery`}
+            </p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
+              <div
+                className={toFree === 0 ? "h-full rounded-full bg-success" : "h-full rounded-full bg-accent"}
+                style={{ width: `${Math.min(100, (subtotal / freeOver) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
         <dl className="mt-5 grid gap-3 text-sm">
           <div className="flex justify-between">
             <dt className="text-ink-soft">Subtotal</dt>
@@ -111,7 +127,7 @@ export function CartView() {
           </div>
           <div className="flex justify-between">
             <dt className="text-ink-soft">Delivery</dt>
-            <dd className="text-ink-soft">Calculated at checkout</dd>
+            <dd className="text-ink-soft">{toFree === 0 ? "Free" : "Calculated at checkout"}</dd>
           </div>
           <div className="flex justify-between border-t border-line pt-3 text-base">
             <dt className="font-medium">Estimated total</dt>

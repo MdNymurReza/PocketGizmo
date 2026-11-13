@@ -7,9 +7,10 @@ import { Badge, Card } from "@/components/ui";
 import { ProductImage } from "@/components/shop/product-image";
 import { OrderActions } from "@/components/admin/order-actions";
 import { SendToPrint } from "@/components/admin/send-to-print";
+import { CopyButton } from "@/components/copy-button";
 import { AdvancePanel, CustomerRisk } from "@/components/admin/customer-risk";
 import { ORDER_STATUS_COLOR, PAYMENT_STATUS_COLOR, PAYMENT_STATUS_LABEL } from "@/lib/orders";
-import { ZONE_LABEL } from "@/lib/bd";
+import { ZONE_LABEL, normalizePhone } from "@/lib/bd";
 import { PAYMENT_LABEL, STATUS_LABEL, formatBDT, formatDate, variantLabel } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Order" };
@@ -23,10 +24,16 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
     .eq("id", id)
     .maybeSingle();
   if (!o) notFound();
-  const [{ data: statsRows }, { count: printJobs }] = await Promise.all([
+  const [{ data: statsRows }, { data: jobRows }] = await Promise.all([
     supabase.rpc("admin_phone_stats", { p_phones: [o.customer_phone] }),
-    supabase.from("print_jobs").select("id", { count: "exact", head: true }).eq("order_id", o.id),
+    supabase.from("print_jobs").select("unit_cost, quantity, status").eq("order_id", o.id),
   ]);
+  const printJobs = jobRows?.length ?? 0;
+  // Profit: what the items sold for, minus what the supplier charges to print them. Delivery is not counted.
+  const liveJobs = (jobRows ?? []).filter((j) => j.status !== "cancelled");
+  const printCost = liveJobs.reduce((n, j) => n + Number(j.unit_cost ?? 0) * j.quantity, 0);
+  const jobsWithoutCost = liveJobs.filter((j) => j.unit_cost == null).length;
+  const itemSales = Number(o.subtotal) - Number(o.discount);
   const stats = statsRows?.[0] ?? { total: 1, delivered: 0, cancelled: 0, blocked: false, block_reason: null };
   const history = [...o.order_status_history].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
@@ -115,13 +122,28 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           <Card className="text-sm">
             <h2 className="font-semibold">Customer</h2>
             <p className="mt-2">{o.customer_name}</p>
-            <p>
+            <p className="flex flex-wrap items-center gap-x-2">
               <a href={`tel:${o.customer_phone}`} className="text-accent hover:underline">{o.customer_phone}</a>
+              <CopyButton value={o.customer_phone} label="Copy phone number" />
+              <a
+                href={`https://wa.me/88${normalizePhone(o.customer_phone)}?text=${encodeURIComponent(`Hello ${o.customer_name}, this is PocketGizmo about your order ${o.order_number}.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-ink-soft underline-offset-4 hover:text-ink hover:underline"
+              >
+                WhatsApp
+              </a>
             </p>
             {o.customer_email && <p className="text-ink-soft">{o.customer_email}</p>}
             <p className="mt-1 text-xs text-ink-soft">{o.user_id ? "Registered customer" : "Guest checkout"}</p>
 
-            <h2 className="mt-5 font-semibold">Delivery address</h2>
+            <h2 className="mt-5 flex items-center gap-1 font-semibold">
+              Delivery address
+              <CopyButton
+                value={`${o.customer_name}\n${o.customer_phone}\n${o.ship_line}, ${o.ship_area}, ${o.ship_district}`}
+                label="Copy name, phone and address (for the courier)"
+              />
+            </h2>
             <p className="mt-2 text-ink-soft">
               {o.ship_line}
               <br />
@@ -142,6 +164,32 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               {o.advance_status !== "none" && <span className="text-ink-soft"> · delivery charge paid in advance</span>}
             </p>
           </Card>
+
+          {o.status !== "cancelled" && (
+            <Card className="text-sm">
+              <h2 className="font-semibold">Profit</h2>
+              {liveJobs.length === 0 ? (
+                <p className="mt-2 text-ink-soft">Send this order to print. When the supplier enters the print cost, the profit shows here.</p>
+              ) : (
+                <>
+                  <dl className="mt-3 grid gap-2">
+                    <Row label="Items sold (after discount)" value={formatBDT(itemSales)} />
+                    <Row label="Print cost" value={`−${formatBDT(printCost)}`} />
+                    <div className="flex justify-between border-t border-line pt-2 text-base font-semibold">
+                      <dt>{jobsWithoutCost ? "Profit so far" : "Profit"}</dt>
+                      <dd className={itemSales - printCost < 0 ? "text-danger tabular-nums" : "tabular-nums"}>{formatBDT(itemSales - printCost)}</dd>
+                    </div>
+                  </dl>
+                  {jobsWithoutCost > 0 && (
+                    <p className="mt-3 rounded-md bg-warning/10 px-3 py-2 text-xs">
+                      {jobsWithoutCost} print job{jobsWithoutCost === 1 ? " has" : "s have"} no cost yet, so the real profit is lower.
+                    </p>
+                  )}
+                  <p className="mt-3 text-xs text-ink-soft">The delivery charge is not counted. It goes to the courier.</p>
+                </>
+              )}
+            </Card>
+          )}
 
           <Card className="text-sm">
             <h2 className="mb-4 font-semibold">History</h2>

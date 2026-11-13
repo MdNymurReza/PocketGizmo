@@ -63,7 +63,7 @@ export function PrintJobCard({ job, mode }: { job: PrintJob; mode: "supplier" | 
             <p className="min-w-0 text-base font-medium break-words">{job.title}</p>
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge color={JOB_STATUS_COLOR[job.status]}>{JOB_STATUS_LABEL[job.status]}</Badge>
-              {job.paid ? <Badge color="success">Paid</Badge> : job.unit_cost != null && !cancelled && <Badge>Not paid</Badge>}
+              {job.paid ? <Badge color="success">Paid{job.paid_at ? ` ${formatDay(job.paid_at)}` : ""}</Badge> : job.unit_cost != null && !cancelled && <Badge>Not paid</Badge>}
             </div>
           </div>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-soft">
@@ -142,6 +142,11 @@ export function PrintJobCard({ job, mode }: { job: PrintJob; mode: "supplier" | 
           {!statusLocked && job.status === "to_print" && (
             <Button size="sm" disabled={pending} onClick={() => setStatus("printing", "Marked as printing")}>
               <Play className="size-4" /> Start printing
+            </Button>
+          )}
+          {!statusLocked && job.status === "to_print" && (
+            <Button size="sm" variant="secondary" disabled={pending} onClick={() => setStatus("printed", "Marked as printed")}>
+              <Check className="size-4" /> Already printed
             </Button>
           )}
           {!statusLocked && job.status === "printing" && (

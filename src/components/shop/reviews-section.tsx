@@ -3,11 +3,12 @@ import { BadgeCheck, MessageSquare } from "lucide-react";
 import { getSessionProfile } from "@/lib/supabase/server";
 import { Stars } from "./stars";
 import { ReviewForm } from "./review-form";
+import { ReviewPhotoList } from "./review-photos";
 import { formatDay } from "@/lib/utils";
 
 export type ReviewSummary = { count: number; average: number };
 
-type Review = { id: string; author_name: string; rating: number; comment: string; created_at: string };
+type Review = { id: string; author_name: string; rating: number; comment: string; photos: string[]; created_at: string };
 
 const FIRST = 6;
 
@@ -17,7 +18,7 @@ export async function ReviewsSection({ productId, slug, reviews }: { productId: 
 
   const [{ data: mine }, { data: eligible }] = user
     ? await Promise.all([
-        supabase.from("reviews").select("rating, comment, status").eq("product_id", productId).eq("user_id", user.id).maybeSingle(),
+        supabase.from("reviews").select("rating, comment, photos, status").eq("product_id", productId).eq("user_id", user.id).maybeSingle(),
         supabase.rpc("can_review", { p_product: productId }),
       ])
     : [{ data: null }, { data: false }];
@@ -73,7 +74,7 @@ export async function ReviewsSection({ productId, slug, reviews }: { productId: 
               to write a review.
             </p>
           ) : eligible || mine ? (
-            <ReviewForm productId={productId} slug={slug} mine={mine} />
+            <ReviewForm productId={productId} slug={slug} userId={user.id} mine={mine} />
           ) : (
             <p className="rounded-xl bg-surface p-4 text-sm text-ink-soft">
               You can review this product once you&apos;ve ordered it and it has been delivered.
@@ -124,6 +125,7 @@ function ReviewItem({ review: r }: { review: Review }) {
         </time>
       </div>
       {r.comment && <p className="mt-2 text-sm leading-relaxed whitespace-pre-line">{r.comment}</p>}
+      <ReviewPhotoList photos={r.photos} author={r.author_name} />
       <p className="mt-2 flex flex-wrap items-center gap-x-2 text-sm">
         <span className="font-medium">{r.author_name}</span>
         <span className="inline-flex items-center gap-1 text-xs text-success">

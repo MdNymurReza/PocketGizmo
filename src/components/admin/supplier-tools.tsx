@@ -11,14 +11,23 @@ import { formatBDT } from "@/lib/utils";
 export function PayAllButton({ count, total }: { count: number; total: number }) {
   const { pending, run } = useAction();
   const [confirming, setConfirming] = useState(false);
+  const [method, setMethod] = useState("");
+  const [reference, setReference] = useState("");
   if (!count) return null;
   if (confirming) {
     return (
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-ink-soft">
+      <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-line bg-white p-3 text-sm">
+        <span className="w-full text-ink-soft">
           Mark {count} job{count === 1 ? "" : "s"} ({formatBDT(total)}) as paid?
         </span>
-        <Button size="sm" disabled={pending} onClick={() => run(() => payJobs(null, total), (r) => `Marked ${r.count} job${r.count === 1 ? "" : "s"} as paid`, () => setConfirming(false))}>
+        <Select value={method} onChange={(e) => setMethod(e.target.value)} className="h-8 w-auto" aria-label="How you paid">
+          <option value="">How you paid (optional)</option>
+          {["Cash", "bKash", "Nagad", "Rocket", "Bank"].map((m) => (
+            <option key={m}>{m}</option>
+          ))}
+        </Select>
+        <Input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={120} placeholder="TrxID or note (optional)" className="h-8 w-48" aria-label="Payment reference" />
+        <Button size="sm" disabled={pending} onClick={() => run(() => payJobs(null, total, method, reference), (r) => `Marked ${r.count} job${r.count === 1 ? "" : "s"} as paid`, () => setConfirming(false))}>
           Yes, paid
         </Button>
         <Button size="sm" variant="ghost" disabled={pending} onClick={() => setConfirming(false)}>

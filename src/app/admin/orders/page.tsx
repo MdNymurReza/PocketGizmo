@@ -58,10 +58,15 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
     if (term) query = query.or(search);
   }
 
-  const [{ data: orders, count }, { count: verifyCount }] = await Promise.all([
+  // Orders that still need work get a count on their tab.
+  const OPEN = ["pending", "confirmed", "printing", "shipped"] as const;
+  const [{ data: orders, count }, { count: verifyCount }, ...openCounts] = await Promise.all([
     query.range((page - 1) * PAGE, page * PAGE - 1),
     supabase.from("orders").select("id", { count: "exact", head: true }).or(NEEDS_CHECK).neq("status", "cancelled"),
+    ...OPEN.map((s) => supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", s)),
   ]);
+  const tabCount: Record<string, number> = { verify: verifyCount ?? 0 };
+  OPEN.forEach((s, i) => (tabCount[s] = openCounts[i].count ?? 0));
 
   // Flag customers whose number has cancelled orders before or is blocked.
   const phones = [...new Set((orders ?? []).map((o) => o.customer_phone))];
@@ -95,7 +100,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               )}
             >
               {t.label}
-              {t.key === "verify" && !!verifyCount && <Badge color="warning">{verifyCount}</Badge>}
+              {!!tabCount[t.key] && <Badge color={t.key === "verify" || t.key === "pending" ? "warning" : "neutral"}>{tabCount[t.key]}</Badge>}
             </Link>
           ))}
         </nav>
@@ -166,12 +171,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             ))}
           </tbody>
         </table>
-        {!orders?.length && <p className="p-8 text-center text-ink-soft">No orders found.</p>}
+        {!orders?.length && <p className="p-8 text-center text-ink-soft">{term ? `No orders match “${term}”.` : "No orders here yet."}</p>}
       </Card>
 
       {pages > 1 && (
         <nav className="mt-6 flex justify-center gap-1" aria-label="Pagination">
-          {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
+          {Array.from({ length: pages }, (_, i) => i + 1)
+            .filter((n) => n === 1 || n === pages || Math.abs(n - page) <= 2)
+            .map((n) => (
             <Link
               key={n}
               href={href({ page: n === 1 ? undefined : String(n) })}

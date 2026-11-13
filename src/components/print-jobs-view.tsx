@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Printer } from "lucide-react";
-import { Badge, ButtonLink, Card, EmptyState } from "@/components/ui";
+import { Printer, Search } from "lucide-react";
+import { Badge, ButtonLink, Card, EmptyState, Input } from "@/components/ui";
 import { PrintJobCard } from "@/components/print-job-card";
-import { JOB_TABS, type JobSummary, type JobTab, type PrintJob } from "@/lib/print-jobs";
-import { cn, formatBDT } from "@/lib/utils";
+import { JOB_TABS, type JobGroup, type JobSummary, type JobTab, type PrintJob, type SupplierPayment } from "@/lib/print-jobs";
+import { cn, formatBDT, formatDate } from "@/lib/utils";
 
 const EMPTY: Record<JobTab, { title: string; supplier: string; admin: string }> = {
   todo: {
@@ -23,6 +23,9 @@ export function PrintJobsView({
   jobs,
   page,
   pages,
+  groups,
+  search,
+  payments,
   tab,
   basePath,
   mode,
@@ -34,6 +37,12 @@ export function PrintJobsView({
   jobs: PrintJob[];
   page: number;
   pages: number;
+  /** Open jobs added up per product. Only loaded for the To do tab. */
+  groups: JobGroup[];
+  /** The text the list is filtered by, if any. */
+  search: string;
+  /** Recorded payments, newest first. Only loaded for the Paid tab. */
+  payments: SupplierPayment[];
   tab: JobTab;
   basePath: string;
   mode: "supplier" | "admin";
@@ -41,12 +50,14 @@ export function PrintJobsView({
   toolbar?: React.ReactNode;
 }) {
   const isAdmin = mode === "admin";
-  const pageHref = (p: number) => {
+  const href = (t: JobTab, p = 1) => {
     const q = new URLSearchParams();
-    if (tab !== "todo") q.set("tab", tab);
+    if (t !== "todo") q.set("tab", t);
+    if (search) q.set("q", search);
     if (p > 1) q.set("page", String(p));
     return q.size ? `${basePath}?${q}` : basePath;
   };
+  const pageHref = (p: number) => href(tab, p);
 
   return (
     <>
@@ -71,7 +82,7 @@ export function PrintJobsView({
           {JOB_TABS.map((t) => (
             <Link
               key={t.key}
-              href={t.key === "todo" ? basePath : `${basePath}?tab=${t.key}`}
+              href={href(t.key)}
               aria-current={tab === t.key ? "page" : undefined}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
@@ -83,8 +94,68 @@ export function PrintJobsView({
             </Link>
           ))}
         </nav>
-        {toolbar}
+        <div className="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
+          {toolbar}
+          <form className="relative w-full sm:w-64">
+            {tab !== "todo" && <input type="hidden" name="tab" value={tab} />}
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-soft" />
+            <Input name="q" defaultValue={search} placeholder="Product, order #, details" className="h-9 pl-9" aria-label="Search print jobs" />
+          </form>
+        </div>
       </div>
+
+      {search && (
+        <p className="mb-4 text-sm text-ink-soft">
+          Showing jobs that match “{search}”.{" "}
+          <Link href={tab === "todo" ? basePath : `${basePath}?tab=${tab}`} className="font-medium text-ink underline underline-offset-4">
+            Show all
+          </Link>
+        </p>
+      )}
+
+      {groups.length > 1 && (
+        <Card className="mb-4">
+          <h2 className="font-semibold">Pieces waiting, by product</h2>
+          <p className="mt-1 text-sm text-ink-soft">Added up over all open jobs, so the same product can be printed together.</p>
+          <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+            {groups.map((g) => (
+              <li key={`${g.title}:${g.variant}`} className="rounded-lg border border-line bg-surface px-3 py-2">
+                <span className="font-semibold tabular-nums">{g.pieces} ×</span> {g.title}
+                {g.variant && <span className="text-ink-soft"> · {g.variant}</span>}
+                {g.withDetails > 0 && <span className="ml-1.5 rounded bg-warning/10 px-1.5 py-0.5 text-xs font-medium">{g.withDetails} with custom details</span>}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {tab === "paid" && payments.length > 0 && !search && (
+        <Card className="mb-4 overflow-x-auto p-0">
+          <h2 className="border-b border-line px-5 py-3 font-semibold">Payment history</h2>
+          <table className="w-full min-w-[480px] text-left text-sm">
+            <thead className="bg-surface text-xs text-ink-soft">
+              <tr>
+                <th className="px-5 py-2 font-medium">Date</th>
+                <th className="px-5 py-2 font-medium">Jobs</th>
+                <th className="px-5 py-2 font-medium">How</th>
+                <th className="px-5 py-2 font-medium">Reference</th>
+                <th className="px-5 py-2 text-right font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {payments.map((p) => (
+                <tr key={p.id}>
+                  <td className="px-5 py-2.5 whitespace-nowrap">{formatDate(p.paid_at)}</td>
+                  <td className="px-5 py-2.5 tabular-nums">{p.job_count}</td>
+                  <td className="px-5 py-2.5">{p.method ?? "–"}</td>
+                  <td className="px-5 py-2.5 break-all">{p.reference ?? "–"}</td>
+                  <td className="px-5 py-2.5 text-right font-medium tabular-nums">{formatBDT(p.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
 
       <Card className="overflow-hidden p-0">
         {jobs.length ? (
@@ -94,7 +165,7 @@ export function PrintJobsView({
             ))}
           </ul>
         ) : (
-          <EmptyState icon={Printer} title={EMPTY[tab].title} text={EMPTY[tab][mode]} />
+          <EmptyState icon={Printer} title={search ? "No jobs match your search" : EMPTY[tab].title} text={search ? "Check the spelling, or look in the All tab." : EMPTY[tab][mode]} />
         )}
       </Card>
 

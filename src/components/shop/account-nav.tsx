@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, LogOut, MapPin, Package, PenTool, Settings, ShieldCheck } from "lucide-react";
+import { Heart, LayoutDashboard, LogOut, MapPin, Package, PenTool, Settings, ShieldCheck } from "lucide-react";
 import { logout } from "@/app/(shop)/(auth)/actions";
 import { cn } from "@/lib/utils";
 
 export const ACCOUNT_LINKS = [
   { href: "/account", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/account/orders", label: "Orders", icon: Package },
+  { href: "/account/wishlist", label: "Saved items", icon: Heart },
   { href: "/account/requests", label: "Custom requests", icon: PenTool },
   { href: "/account/addresses", label: "Addresses", icon: MapPin },
   { href: "/account/settings", label: "Settings", icon: Settings },

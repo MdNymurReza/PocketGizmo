@@ -11,6 +11,7 @@ import { Reveal } from "@/components/motion";
 import { createClient } from "@/lib/supabase/server";
 import { ReviewsSection } from "@/components/shop/reviews-section";
 import { Stars } from "@/components/shop/stars";
+import { WishlistButton } from "@/components/shop/wishlist-button";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -38,14 +39,16 @@ export default async function ProductPage({ params }: Props) {
   const product = await getProductBySlug(slug);
   if (!product || product.product_variants.length === 0) notFound();
   const supabase = await createClient();
-  const [related, settings, { data: filaments }, { data: reviewRows }] = await Promise.all([
+  const [related, settings, { data: filaments }, { data: savedRow }, { data: reviewRows }] = await Promise.all([
     getRelated(product.id, product.category_id),
     getStoreSettings(),
     supabase.from("filaments").select("color, hex"),
+    // Row-level security returns a row only when the logged-in customer saved this product.
+    supabase.from("wishlist_items").select("product_id").eq("product_id", product.id).maybeSingle(),
     // Row-level security already limits visitors to approved reviews; the filter keeps the author's own pending one out of the public list.
     supabase
       .from("reviews")
-      .select("id, author_name, rating, comment, created_at")
+      .select("id, author_name, rating, comment, photos, created_at")
       .eq("product_id", product.id)
       .eq("status", "approved")
       .order("created_at", { ascending: false })
@@ -102,7 +105,8 @@ export default async function ProductPage({ params }: Props) {
         <div className="min-w-0 lg:max-w-xl lg:pt-2">
           {product.categories && <p className="text-sm text-ink-soft">{product.categories.name}</p>}
           <h1 className="mt-1 text-2xl font-semibold break-words sm:text-3xl">{product.name}</h1>
-          <a href="#reviews" className="mt-3 inline-flex items-center gap-2 text-sm text-ink-soft hover:text-ink">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <a href="#reviews" className="inline-flex items-center gap-2 text-sm text-ink-soft hover:text-ink">
             {reviews.length > 0 ? (
               <>
                 <Stars rating={ratingAvg} />
@@ -114,6 +118,8 @@ export default async function ProductPage({ params }: Props) {
               <span className="underline underline-offset-4">No reviews yet</span>
             )}
           </a>
+          <WishlistButton productId={product.id} slug={product.slug} initialSaved={Boolean(savedRow)} />
+          </div>
           <div className="mt-6">
             <PurchasePanel
               product={{ id: product.id, slug: product.slug, name: product.name, image: product.images[0] ?? null }}

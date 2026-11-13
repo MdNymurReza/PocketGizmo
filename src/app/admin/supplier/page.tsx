@@ -8,12 +8,12 @@ import { variantLabel } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Supplier" };
 
-export default async function AdminSupplierPage({ searchParams }: { searchParams: Promise<{ tab?: string; page?: string; product?: string }> }) {
+export default async function AdminSupplierPage({ searchParams }: { searchParams: Promise<{ tab?: string; page?: string; q?: string; product?: string }> }) {
   const sp = await searchParams;
   const supabase = await createClient();
   const tab = parseJobTab(sp.tab);
   const [list, { data: suppliers }, { data: productRows }] = await Promise.all([
-    loadPrintJobs(supabase, tab, sp.page),
+    loadPrintJobs(supabase, tab, sp.page, sp.q),
     supabase.rpc("admin_list_suppliers"),
     supabase.from("products").select("id, name, product_variants(id, options, is_active)").order("name"),
   ]);

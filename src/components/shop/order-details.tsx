@@ -1,12 +1,15 @@
 import type { TrackedOrder } from "@/lib/orders";
 import { ADVANCE_STATUS_COLOR, ADVANCE_STATUS_LABEL, PAYMENT_STATUS_COLOR, PAYMENT_STATUS_LABEL } from "@/lib/orders";
 import { Badge } from "@/components/ui";
+import { CopyButton } from "@/components/copy-button";
+import { getStoreSettings } from "@/lib/store-settings";
 import { ProductImage } from "./product-image";
 import { OrderProgress } from "./order-progress";
 import { PAYMENT_LABEL, formatBDT, formatDate, variantLabel } from "@/lib/utils";
 
 /** Shared order view used by the confirmation, tracking and account pages. */
-export function OrderDetails({ order }: { order: TrackedOrder }) {
+export async function OrderDetails({ order }: { order: TrackedOrder }) {
+  const store = await getStoreSettings();
   return (
     <div className="@container">
     <div className="grid gap-8 @4xl:grid-cols-[1fr_360px]">
@@ -18,6 +21,7 @@ export function OrderDetails({ order }: { order: TrackedOrder }) {
             <p className="mt-6 rounded-lg bg-surface px-4 py-3 text-sm">
               Shipped with <strong>{order.courier ?? "courier"}</strong>, tracking code{" "}
               <span className="font-mono font-medium">{order.tracking_code}</span>
+              <CopyButton value={order.tracking_code} label="Copy tracking code" />
             </p>
           )}
         </section>
@@ -79,6 +83,26 @@ export function OrderDetails({ order }: { order: TrackedOrder }) {
             {order.ship_area}, {order.ship_district}
           </p>
         </section>
+        {(store.phone || store.facebook) && (
+          <section className="rounded-xl border border-line p-6 text-sm">
+            <h2 className="font-semibold">Need help with this order?</h2>
+            <p className="mt-2 text-ink-soft">
+              Tell us your order number, <span className="font-medium text-ink">{order.order_number}</span>.
+            </p>
+            <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-medium">
+              {store.phone && (
+                <a href={`tel:${store.phone}`} className="text-accent hover:underline">
+                  Call {store.phone}
+                </a>
+              )}
+              {store.facebook && (
+                <a href={store.facebook} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                  Message us on Facebook
+                </a>
+              )}
+            </p>
+          </section>
+        )}
       </aside>
     </div>
     </div>

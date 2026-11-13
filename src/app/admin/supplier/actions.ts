@@ -19,12 +19,17 @@ function refresh() {
  * The database pays only finished jobs that have a cost, and refuses if their total
  * is not the amount the admin saw (expectedTotal), e.g. because a cost changed meanwhile.
  */
-export async function payJobs(ids: string[] | null, expectedTotal: number): Promise<Result> {
+export async function payJobs(ids: string[] | null, expectedTotal: number, method = "", reference = ""): Promise<Result> {
   try {
     const { supabase } = await requireAdmin();
     const parsed = z.object({ ids: z.array(z.uuid()).min(1).max(500).nullable(), total: z.number().min(0) }).safeParse({ ids, total: expectedTotal });
     if (!parsed.success) return { error: "Nothing to pay" };
-    const { data, error } = await supabase.rpc("admin_pay_jobs", { p_ids: parsed.data.ids, p_expected_total: roundMoney(parsed.data.total) });
+    const { data, error } = await supabase.rpc("admin_pay_jobs", {
+      p_ids: parsed.data.ids,
+      p_expected_total: roundMoney(parsed.data.total),
+      p_method: String(method).slice(0, 40),
+      p_reference: String(reference).slice(0, 120),
+    });
     if (error) return { error: /Nothing to pay|costs changed/i.test(error.message) ? error.message : "Couldn't mark that as paid" };
     refresh();
     return { count: data ?? 0 };
@@ -38,8 +43,9 @@ export async function setJobUnpaid(id: string): Promise<Result> {
   try {
     const { supabase } = await requireAdmin();
     if (!z.uuid().safeParse(id).success) return { error: "Invalid job" };
-    const { error } = await supabase.from("print_jobs").update({ paid: false, paid_at: null }).eq("id", id);
-    if (error) return { error: error.message };
+    // The database also takes this job out of the payment it was part of.
+    const { error } = await supabase.rpc("admin_unpay_job", { p_job: id });
+    if (error) return { error: "Couldn't mark that as not paid" };
     refresh();
     return {};
   } catch (e) {
@@ -51,6 +57,9 @@ export async function deleteJob(id: string): Promise<Result> {
   try {
     const { supabase } = await requireAdmin();
     if (!z.uuid().safeParse(id).success) return { error: "Invalid job" };
+    // A paid job is part of a recorded payment, so it has to be marked as not paid first.
+    const { data: job } = await supabase.from("print_jobs").select("paid").eq("id", id).maybeSingle();
+    if (job?.paid) return { error: "This job is paid. Mark it as not paid before you delete it." };
     const { error } = await supabase.from("print_jobs").delete().eq("id", id);
     if (error) return { error: error.message };
     refresh();

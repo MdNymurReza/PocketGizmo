@@ -71,7 +71,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const { supabase, profile } = await getSessionProfile();
   const openCount = (status: OrderStatus) => supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", status);
 
-  const [{ data, error }, { data: prevData }, { count: newRequests }, { count: newReviews }, { data: recent }, { count: products }, { data: settings }, ...pipelineCounts] =
+  const [{ data, error }, { data: prevData }, { count: newRequests }, { count: newReviews }, { data: recent }, { count: products }, { data: settings }, { data: profit }, ...pipelineCounts] =
     await Promise.all([
       supabase.rpc("sales_summary", { p_from: from.toISOString(), p_to: to.toISOString() }),
       supabase.rpc("sales_summary", { p_from: prevFrom.toISOString(), p_to: prevTo.toISOString() }),
@@ -84,6 +84,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         .limit(6),
       supabase.from("products").select("id", { count: "exact", head: true }),
       supabase.from("settings").select("bkash_number, nagad_number, rocket_number, contact_phone, contact_email").eq("id", 1).single(),
+      supabase.rpc("admin_profit_summary", { p_from: from.toISOString(), p_to: to.toISOString() }),
       ...PIPELINE.map((p) => openCount(p.status)),
     ]);
   if (error || !data) return <p className="text-danger">Couldn&apos;t load the dashboard: {error?.message}</p>;
@@ -348,6 +349,35 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
             trend={<Trend now={Number(t.items)} prev={prev && Number(prev.items)} period={periodLabel} />}
           />
         </div>
+
+        {profit && (
+          <Card className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+            <div>
+              <p className="text-sm text-ink-soft">Profit after print costs</p>
+              <p className={cn("mt-1 text-2xl font-semibold tabular-nums", Number(profit.profit) < 0 && "text-danger")}>
+                {Number(profit.counted_orders) > 0 ? formatBDT(profit.profit) : "–"}
+              </p>
+            </div>
+            <div className="max-w-xl text-sm text-ink-soft">
+              {Number(profit.counted_orders) > 0 ? (
+                <p>
+                  Items sold for {formatBDT(profit.sales)}, minus {formatBDT(profit.cost)} print cost, from {profit.counted_orders} order
+                  {Number(profit.counted_orders) === 1 ? "" : "s"}. Delivery charges are not counted.
+                </p>
+              ) : (
+                <p>No order in this period has its print costs yet.</p>
+              )}
+              {Number(profit.uncounted_orders) > 0 && (
+                <p className="mt-1">
+                  {profit.uncounted_orders} order{Number(profit.uncounted_orders) === 1 ? " is" : "s are"} not counted, because the print cost is missing.{" "}
+                  <Link href="/admin/supplier?tab=all" className="font-medium text-ink underline underline-offset-4">
+                    Open the print list
+                  </Link>
+                </p>
+              )}
+            </div>
+          </Card>
+        )}
 
         <div className="grid gap-4 xl:grid-cols-3">
           <Card className="xl:col-span-2">

@@ -8,9 +8,9 @@ export type Database = {
   public: {
     Tables: {
       reviews: {
-        Row: { id: string; product_id: string; user_id: string; author_name: string; rating: number; comment: string; status: E["review_status"]; created_at: string; updated_at: string };
-        Insert: { id?: string; product_id: string; user_id: string; author_name: string; rating: number; comment?: string; status?: E["review_status"]; created_at?: string; updated_at?: string };
-        Update: { id?: string; product_id?: string; user_id?: string; author_name?: string; rating?: number; comment?: string; status?: E["review_status"]; created_at?: string; updated_at?: string };
+        Row: { id: string; product_id: string; user_id: string; author_name: string; rating: number; comment: string; status: E["review_status"]; created_at: string; updated_at: string; photos: string[] };
+        Insert: { id?: string; product_id: string; user_id: string; author_name: string; rating: number; comment?: string; status?: E["review_status"]; created_at?: string; updated_at?: string; photos?: string[] };
+        Update: { id?: string; product_id?: string; user_id?: string; author_name?: string; rating?: number; comment?: string; status?: E["review_status"]; created_at?: string; updated_at?: string; photos?: string[] };
         Relationships: [{ foreignKeyName: "reviews_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] }];
       };
       filaments: {
@@ -106,10 +106,22 @@ export type Database = {
         Update: { created_at?: string; full_name?: string | null; id?: string; phone?: string | null; role?: E["user_role"] };
         Relationships: [];
       };
+      supplier_payments: {
+        Row: { id: string; amount: number; job_count: number; method: string | null; reference: string | null; paid_at: string; created_by: string | null };
+        Insert: { id?: string; amount: number; job_count: number; method?: string | null; reference?: string | null; paid_at?: string; created_by?: string | null };
+        Update: { id?: string; amount?: number; job_count?: number; method?: string | null; reference?: string | null; paid_at?: string; created_by?: string | null };
+        Relationships: [];
+      };
+      wishlist_items: {
+        Row: { user_id: string; product_id: string; created_at: string };
+        Insert: { user_id: string; product_id: string; created_at?: string };
+        Update: { user_id?: string; product_id?: string; created_at?: string };
+        Relationships: [];
+      };
       print_jobs: {
-        Row: { created_at: string; details: string | null; id: string; image: string | null; order_id: string | null; order_item_id: string | null; order_number: string | null; paid: boolean; paid_at: string | null; printed_at: string | null; quantity: number; status: E["print_job_status"]; supplier_note: string | null; title: string; unit_cost: number | null; updated_at: string; variant: string | null };
-        Insert: { created_at?: string; details?: string | null; id?: string; image?: string | null; order_id?: string | null; order_item_id?: string | null; order_number?: string | null; paid?: boolean; paid_at?: string | null; printed_at?: string | null; quantity: number; status?: E["print_job_status"]; supplier_note?: string | null; title: string; unit_cost?: number | null; updated_at?: string; variant?: string | null };
-        Update: { created_at?: string; details?: string | null; id?: string; image?: string | null; order_id?: string | null; order_item_id?: string | null; order_number?: string | null; paid?: boolean; paid_at?: string | null; printed_at?: string | null; quantity?: number; status?: E["print_job_status"]; supplier_note?: string | null; title?: string; unit_cost?: number | null; updated_at?: string; variant?: string | null };
+        Row: { created_at: string; details: string | null; id: string; image: string | null; order_id: string | null; order_item_id: string | null; order_number: string | null; paid: boolean; paid_at: string | null; printed_at: string | null; quantity: number; status: E["print_job_status"]; supplier_note: string | null; title: string; unit_cost: number | null; updated_at: string; variant: string | null; payment_id: string | null };
+        Insert: { created_at?: string; details?: string | null; id?: string; image?: string | null; order_id?: string | null; order_item_id?: string | null; order_number?: string | null; paid?: boolean; paid_at?: string | null; printed_at?: string | null; quantity: number; status?: E["print_job_status"]; supplier_note?: string | null; title: string; unit_cost?: number | null; updated_at?: string; variant?: string | null; payment_id?: string | null };
+        Update: { created_at?: string; details?: string | null; id?: string; image?: string | null; order_id?: string | null; order_item_id?: string | null; order_number?: string | null; paid?: boolean; paid_at?: string | null; printed_at?: string | null; quantity?: number; status?: E["print_job_status"]; supplier_note?: string | null; title?: string; unit_cost?: number | null; updated_at?: string; variant?: string | null; payment_id?: string | null };
         Relationships: [];
       };
       settings: {
@@ -128,11 +140,13 @@ export type Database = {
       admin_send_order_to_print: { Args: { p_order: string }; Returns: number };
       admin_set_supplier: { Args: { p_email: string; p_on: boolean }; Returns: undefined };
       supplier_update_job: { Args: { p_job: string; p_status: E["print_job_status"] | null; p_unit_cost: number | null; p_note: string | null; p_clear_cost?: boolean }; Returns: undefined };
-      admin_pay_jobs: { Args: { p_ids: string[] | null; p_expected_total: number | null }; Returns: number };
+      admin_pay_jobs: { Args: { p_ids: string[] | null; p_expected_total: number | null; p_method?: string | null; p_reference?: string | null }; Returns: number };
+      admin_unpay_job: { Args: { p_job: string }; Returns: undefined };
+      admin_profit_summary: { Args: { p_from: string; p_to: string }; Returns: { sales: number; cost: number; profit: number; counted_orders: number; uncounted_orders: number } };
       print_job_summary: { Args: never; Returns: { to_print: number; printing: number; printed: number; earned: number; paid: number; due: number; payable_count: number; missing_cost: number; count_todo: number; count_done: number; count_unpaid: number; count_paid: number; count_all: number } };
       is_supplier: { Args: never; Returns: boolean };
       can_review: { Args: { p_product: string }; Returns: boolean };
-      submit_review: { Args: { p_product: string; p_rating: number; p_comment: string }; Returns: E["review_status"] };
+      submit_review: { Args: { p_product: string; p_rating: number; p_comment: string; p_photos?: string[] }; Returns: E["review_status"] };
       compute_coupon_discount: { Args: { p_code: string; p_subtotal: number; p_user: string }; Returns: { coupon_id: string; discount: number; error: string }[] };
       is_admin: { Args: never; Returns: boolean };
       place_order: {

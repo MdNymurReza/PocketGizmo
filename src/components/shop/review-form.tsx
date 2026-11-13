@@ -6,20 +6,22 @@ import { Loader2, Star } from "lucide-react";
 import { toast } from "sonner";
 import { deleteMyReview, submitReview } from "@/app/(shop)/product/[slug]/actions";
 import { Badge, Button, Textarea } from "@/components/ui";
+import { ReviewPhotoList, ReviewPhotos } from "./review-photos";
 import { cn } from "@/lib/utils";
 
 const LABELS = ["", "Poor", "Fair", "Good", "Very good", "Excellent"];
 const MAX = 1500;
 
-type Mine = { rating: number; comment: string; status: "pending" | "approved" | "rejected" } | null;
+type Mine = { rating: number; comment: string; photos: string[]; status: "pending" | "approved" | "rejected" } | null;
 
-export function ReviewForm({ productId, slug, mine }: { productId: string; slug: string; mine: Mine }) {
+export function ReviewForm({ productId, slug, userId, mine }: { productId: string; slug: string; userId: string; mine: Mine }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [editing, setEditing] = useState(!mine);
   const [rating, setRating] = useState(mine?.rating ?? 0);
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState(mine?.comment ?? "");
+  const [photos, setPhotos] = useState<string[]>(mine?.photos ?? []);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState(false);
 
@@ -27,7 +29,7 @@ export function ReviewForm({ productId, slug, mine }: { productId: string; slug:
     e.preventDefault();
     if (!rating) return setError("Choose a star rating first.");
     start(async () => {
-      const res = await submitReview({ productId, slug, rating, comment });
+      const res = await submitReview({ productId, slug, rating, comment, photos });
       if (res.error) {
         setError(res.error);
         return void toast.error(res.error);
@@ -45,6 +47,7 @@ export function ReviewForm({ productId, slug, mine }: { productId: string; slug:
       toast.success("Review deleted");
       setRating(0);
       setComment("");
+      setPhotos([]);
       setConfirming(false);
       setEditing(true);
       router.refresh();
@@ -66,6 +69,7 @@ export function ReviewForm({ productId, slug, mine }: { productId: string; slug:
           ))}
         </p>
         {mine.comment && <p className="mt-2 whitespace-pre-line text-ink-soft">{mine.comment}</p>}
+        <ReviewPhotoList photos={mine.photos} author="you" />
         {mine.status === "rejected" && (
           <p className="mt-2 text-xs text-ink-soft">This review wasn&apos;t published. You can edit it and send it again.</p>
         )}
@@ -153,8 +157,10 @@ export function ReviewForm({ productId, slug, mine }: { productId: string; slug:
         </span>
       </label>
 
+      <ReviewPhotos userId={userId} photos={photos} onChange={setPhotos} disabled={pending} />
+
       {error && (
-        <p role="alert" className="mt-1 text-sm text-danger">
+        <p role="alert" className="mt-3 text-sm text-danger">
           {error}
         </p>
       )}
