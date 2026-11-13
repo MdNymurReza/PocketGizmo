@@ -13,6 +13,7 @@ export function ProductCard({ product, priority }: { product: CardProduct; prior
   const min = prices.length ? Math.min(...prices) : Number(product.base_price);
   const varied = prices.length > 1 && Math.max(...prices) !== min;
   const onSale = product.compare_at_price && Number(product.compare_at_price) > min;
+  const salePct = onSale ? Math.round((1 - min / Number(product.compare_at_price)) * 100) : 0;
   const colorKey = Object.keys(active[0]?.options ?? {}).find((k) => /colou?r/i.test(k));
   const colors = colorKey ? new Set(active.map((v) => v.options[colorKey])).size : 0;
   const badge = soldOut ? "Sold out" : onSale ? "Sale" : lowStock ? "Few left" : null;
@@ -48,20 +49,27 @@ export function ProductCard({ product, priority }: { product: CardProduct; prior
           <ArrowUpRight className="size-4" />
         </span>
       </div>
-      <div className="mt-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-medium decoration-ink/30 underline-offset-4 group-hover:underline">{product.name}</h3>
-          <p className="mt-0.5 truncate text-sm text-ink-soft">
+      <div className="mt-3 px-0.5">
+        {(product.categories?.name || colors > 1) && (
+          <p className="truncate text-xs text-ink-soft">
             {product.categories?.name}
-            {colors > 1 && <span> · {colors} colors</span>}
+            {product.categories?.name && colors > 1 && " · "}
+            {colors > 1 && `${colors} colors`}
           </p>
-        </div>
-        <p className="shrink-0 text-right text-sm">
-          <span className="font-medium">
-            {varied && <span className="font-normal text-ink-soft">From </span>}
-            {formatBDT(min)}
-          </span>
-          {onSale && <span className="block text-xs text-ink-soft line-through">{formatBDT(product.compare_at_price)}</span>}
+        )}
+        {/* Two lines are always reserved so prices line up across a row. */}
+        <h3 className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 font-medium decoration-ink/30 underline-offset-4 group-hover:underline">
+          {product.name}
+        </h3>
+        <p className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          {varied && <span className="text-xs text-ink-soft">From</span>}
+          <span className={`text-base font-semibold tabular-nums ${soldOut ? "text-ink-soft" : "text-ink"}`}>{formatBDT(min)}</span>
+          {onSale && (
+            <>
+              <span className="text-xs text-ink-soft line-through tabular-nums">{formatBDT(product.compare_at_price)}</span>
+              <span className="rounded-md bg-accent/10 px-1.5 py-0.5 text-xs font-semibold text-accent">-{salePct}%</span>
+            </>
+          )}
         </p>
       </div>
     </Link>

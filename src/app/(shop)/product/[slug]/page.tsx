@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Banknote, ChevronRight, Layers, ShieldCheck, Truck } from "lucide-react";
+import { ChevronRight, Layers, MapPin, ShieldCheck, Sparkles } from "lucide-react";
+import { getStoreSettings } from "@/lib/store-settings";
 import { getProductBySlug, getRelated } from "@/lib/queries";
 import { Gallery } from "@/components/shop/gallery";
 import { PurchasePanel } from "@/components/shop/purchase-panel";
@@ -27,9 +28,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 const PERKS = [
   { icon: Layers, text: "Printed to order" },
-  { icon: Truck, text: "Delivery across Bangladesh, trackable online" },
-  { icon: Banknote, text: "bKash, Nagad, Rocket or cash on delivery" },
   { icon: ShieldCheck, text: "Quality-checked before it ships" },
+  { icon: MapPin, text: "Track your order online" },
+  { icon: Sparkles, text: "Custom colors on request" },
 ];
 
 export default async function ProductPage({ params }: Props) {
@@ -37,8 +38,10 @@ export default async function ProductPage({ params }: Props) {
   const product = await getProductBySlug(slug);
   if (!product || product.product_variants.length === 0) notFound();
   const supabase = await createClient();
-  const [related, { data: reviewRows }] = await Promise.all([
+  const [related, settings, { data: filaments }, { data: reviewRows }] = await Promise.all([
     getRelated(product.id, product.category_id),
+    getStoreSettings(),
+    supabase.from("filaments").select("color, hex"),
     // Row-level security already limits visitors to approved reviews; the filter keeps the author's own pending one out of the public list.
     supabase
       .from("reviews")
@@ -49,6 +52,7 @@ export default async function ProductPage({ params }: Props) {
       .limit(200),
   ]);
   const reviews = reviewRows ?? [];
+  const colorHex = Object.fromEntries((filaments ?? []).map((f) => [f.color.trim().toLowerCase(), f.hex]));
   const ratingAvg = reviews.length ? reviews.reduce((n, r) => n + r.rating, 0) / reviews.length : 0;
 
   const variants = product.product_variants.map((v) => ({ id: v.id, options: v.options, price: Number(v.price), stock: v.stock }));
@@ -112,12 +116,14 @@ export default async function ProductPage({ params }: Props) {
               product={{ id: product.id, slug: product.slug, name: product.name, image: product.images[0] ?? null }}
               variants={variants}
               compareAt={product.compare_at_price ? Number(product.compare_at_price) : null}
+              shipping={{ insideDhaka: settings.insideDhaka, outsideDhaka: settings.outsideDhaka, freeOver: settings.freeOver }}
+              colorHex={colorHex}
             />
           </div>
 
-          <ul className="mt-8 grid gap-3 border-t border-line pt-6 text-sm text-ink-soft">
+          <ul className="mt-6 grid grid-cols-2 gap-3 text-sm text-ink-soft">
             {PERKS.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-3">
+              <li key={text} className="flex items-center gap-3 rounded-xl bg-surface px-3.5 py-3">
                 <Icon className="size-4 shrink-0 text-ink" strokeWidth={1.75} /> {text}
               </li>
             ))}
