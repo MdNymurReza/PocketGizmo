@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/supabase/server";
+import { roundMoney } from "@/lib/print-jobs";
+import { variantLabel } from "@/lib/utils";
 
 type Result = { error?: string; count?: number };
 const fail = (e: unknown): Result => ({ error: e instanceof Error ? e.message : String(e) });
@@ -12,22 +14,34 @@ function refresh() {
   revalidatePath("/supplier");
 }
 
-/** Mark jobs as paid (or unpaid). A job needs a cost before it can be paid. */
-export async function setJobsPaid(ids: string[], paid: boolean): Promise<Result> {
+/**
+ * Mark jobs as paid. Pass null to pay every job that can be paid.
+ * The database pays only finished jobs that have a cost, and refuses if their total
+ * is not the amount the admin saw (expectedTotal), e.g. because a cost changed meanwhile.
+ */
+export async function payJobs(ids: string[] | null, expectedTotal: number): Promise<Result> {
   try {
     const { supabase } = await requireAdmin();
-    const parsed = z.array(z.uuid()).min(1).max(500).safeParse(ids);
-    if (!parsed.success) return { error: "Nothing to update" };
-    let q = supabase
-      .from("print_jobs")
-      .update({ paid, paid_at: paid ? new Date().toISOString() : null })
-      .in("id", parsed.data);
-    if (paid) q = q.not("unit_cost", "is", null);
-    const { data, error } = await q.select("id");
-    if (error) return { error: error.message };
-    if (paid && !data.length) return { error: "Set a cost first, then mark it as paid" };
+    const parsed = z.object({ ids: z.array(z.uuid()).min(1).max(500).nullable(), total: z.number().min(0) }).safeParse({ ids, total: expectedTotal });
+    if (!parsed.success) return { error: "Nothing to pay" };
+    const { data, error } = await supabase.rpc("admin_pay_jobs", { p_ids: parsed.data.ids, p_expected_total: roundMoney(parsed.data.total) });
+    if (error) return { error: /Nothing to pay|costs changed/i.test(error.message) ? error.message : "Couldn't mark that as paid" };
     refresh();
-    return { count: data.length };
+    return { count: data ?? 0 };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Undo a payment that was marked by mistake. */
+export async function setJobUnpaid(id: string): Promise<Result> {
+  try {
+    const { supabase } = await requireAdmin();
+    if (!z.uuid().safeParse(id).success) return { error: "Invalid job" };
+    const { error } = await supabase.from("print_jobs").update({ paid: false, paid_at: null }).eq("id", id);
+    if (error) return { error: error.message };
+    refresh();
+    return {};
   } catch (e) {
     return fail(e);
   }
@@ -83,7 +97,7 @@ export async function addJob(input: z.input<typeof jobSchema>): Promise<Result> 
       const { data: v } = await supabase.from("product_variants").select("options, products(name, images)").eq("id", j.variantId).single();
       if (!v?.products) return { error: "That product option no longer exists" };
       j.title = v.products.name;
-      j.variant = Object.values((v.options ?? {}) as Record<string, string>).filter(Boolean).join(" / ");
+      j.variant = variantLabel(v.options as Record<string, string> | null);
       image = v.products.images[0] ?? null;
     }
     const { error } = await supabase.from("print_jobs").insert({

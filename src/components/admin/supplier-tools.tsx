@@ -1,39 +1,24 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Plus, X } from "lucide-react";
-import { toast } from "sonner";
-import { addJob, setJobsPaid, setSupplier } from "@/app/admin/supplier/actions";
+import { addJob, payJobs, setSupplier } from "@/app/admin/supplier/actions";
 import { Button, Card, Field, Input, Select, Textarea } from "@/components/ui";
+import { useAction } from "@/lib/use-action";
 import { formatBDT } from "@/lib/utils";
 
-function useRun() {
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  const run = (fn: () => Promise<{ error?: string }>, ok: string, after?: () => void) =>
-    start(async () => {
-      const res = await fn();
-      if (res.error) return void toast.error(res.error);
-      toast.success(ok);
-      after?.();
-      router.refresh();
-    });
-  return { pending, run };
-}
-
-/** Pays every printed job that has a cost, after a confirmation. */
-export function PayAllButton({ ids, total }: { ids: string[]; total: number }) {
-  const { pending, run } = useRun();
+/** Pays every printed job that has a cost, after a confirmation. The count and total cover all jobs, not only this page. */
+export function PayAllButton({ count, total }: { count: number; total: number }) {
+  const { pending, run } = useAction();
   const [confirming, setConfirming] = useState(false);
-  if (!ids.length) return null;
+  if (!count) return null;
   if (confirming) {
     return (
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-ink-soft">
-          Mark {ids.length} job{ids.length === 1 ? "" : "s"} ({formatBDT(total)}) as paid?
+          Mark {count} job{count === 1 ? "" : "s"} ({formatBDT(total)}) as paid?
         </span>
-        <Button size="sm" disabled={pending} onClick={() => run(() => setJobsPaid(ids, true), "Marked as paid", () => setConfirming(false))}>
+        <Button size="sm" disabled={pending} onClick={() => run(() => payJobs(null, total), (r) => `Marked ${r.count} job${r.count === 1 ? "" : "s"} as paid`, () => setConfirming(false))}>
           Yes, paid
         </Button>
         <Button size="sm" variant="ghost" disabled={pending} onClick={() => setConfirming(false)}>
@@ -58,7 +43,7 @@ const EMPTY_JOB = { title: "", variant: "", details: "", quantity: "1", unitCost
  * or type a name for anything else (e.g. a custom request).
  */
 export function AddJobForm({ products, initialProductId }: { products: JobProduct[]; initialProductId?: string }) {
-  const { pending, run } = useRun();
+  const { pending, run } = useAction();
   const preset = products.find((p) => p.id === initialProductId);
   const [open, setOpen] = useState(Boolean(preset));
   const [productId, setProductId] = useState(preset?.id ?? "");
@@ -160,7 +145,7 @@ export function AddJobForm({ products, initialProductId }: { products: JobProduc
 
 /** Choose which account can open the supplier dashboard. */
 export function SupplierAccess({ suppliers }: { suppliers: { id: string; email: string; full_name: string | null }[] }) {
-  const { pending, run } = useRun();
+  const { pending, run } = useAction();
   const [email, setEmail] = useState("");
   return (
     <Card className="mt-8 max-w-3xl">

@@ -23,9 +23,11 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
     .eq("id", id)
     .maybeSingle();
   if (!o) notFound();
-  const { data: statsRows } = await supabase.rpc("admin_phone_stats", { p_phones: [o.customer_phone] });
+  const [{ data: statsRows }, { count: printJobs }] = await Promise.all([
+    supabase.rpc("admin_phone_stats", { p_phones: [o.customer_phone] }),
+    supabase.from("print_jobs").select("id", { count: "exact", head: true }).eq("order_id", o.id),
+  ]);
   const stats = statsRows?.[0] ?? { total: 1, delivered: 0, cancelled: 0, blocked: false, block_reason: null };
-  const { count: printJobs } = await supabase.from("print_jobs").select("id", { count: "exact", head: true }).eq("order_id", o.id);
   const history = [...o.order_status_history].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   return (

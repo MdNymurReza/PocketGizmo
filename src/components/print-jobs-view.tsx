@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { Printer } from "lucide-react";
-import { Badge, Card, EmptyState } from "@/components/ui";
+import { Badge, ButtonLink, Card, EmptyState } from "@/components/ui";
 import { PrintJobCard } from "@/components/print-job-card";
-import { JOB_TABS, inTab, summarize, type JobTab, type PrintJob } from "@/lib/print-jobs";
+import { JOB_TABS, type JobSummary, type JobTab, type PrintJob } from "@/lib/print-jobs";
 import { cn, formatBDT } from "@/lib/utils";
-
-export const parseJobTab = (v: string | undefined): JobTab => (JOB_TABS.some((t) => t.key === v) ? (v as JobTab) : "todo");
 
 const EMPTY: Record<JobTab, { title: string; supplier: string; admin: string }> = {
   todo: {
@@ -21,22 +19,34 @@ const EMPTY: Record<JobTab, { title: string; supplier: string; admin: string }> 
 
 /** Totals, tabs and the job list. Shared by the supplier dashboard and the admin's supplier page. */
 export function PrintJobsView({
+  summary: s,
   jobs,
+  page,
+  pages,
   tab,
   basePath,
   mode,
   toolbar,
 }: {
+  /** Totals over every job, not only the ones on this page. */
+  summary: JobSummary;
+  /** The jobs of this tab on this page. */
   jobs: PrintJob[];
+  page: number;
+  pages: number;
   tab: JobTab;
   basePath: string;
   mode: "supplier" | "admin";
   /** Extra controls shown to the right of the tabs. */
   toolbar?: React.ReactNode;
 }) {
-  const s = summarize(jobs);
-  const shown = jobs.filter((j) => inTab(j, tab));
   const isAdmin = mode === "admin";
+  const pageHref = (p: number) => {
+    const q = new URLSearchParams();
+    if (tab !== "todo") q.set("tab", tab);
+    if (p > 1) q.set("page", String(p));
+    return q.size ? `${basePath}?${q}` : basePath;
+  };
 
   return (
     <>
@@ -77,16 +87,38 @@ export function PrintJobsView({
       </div>
 
       <Card className="overflow-hidden p-0">
-        {shown.length ? (
+        {jobs.length ? (
           <ul className="divide-y divide-line">
-            {shown.map((j) => (
-              <PrintJobCard key={j.id} job={j} mode={mode} />
+            {jobs.map((j) => (
+              <PrintJobCard key={`${j.id}:${j.updated_at}`} job={j} mode={mode} />
             ))}
           </ul>
         ) : (
           <EmptyState icon={Printer} title={EMPTY[tab].title} text={EMPTY[tab][mode]} />
         )}
       </Card>
+
+      {pages > 1 && (
+        <nav className="mt-4 flex items-center justify-between gap-3 text-sm" aria-label="Pages">
+          {page > 1 ? (
+            <ButtonLink href={pageHref(page - 1)} variant="secondary" size="sm">
+              Newer
+            </ButtonLink>
+          ) : (
+            <span />
+          )}
+          <span className="text-ink-soft">
+            Page {page} of {pages}
+          </span>
+          {page < pages ? (
+            <ButtonLink href={pageHref(page + 1)} variant="secondary" size="sm">
+              Older
+            </ButtonLink>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
     </>
   );
 }

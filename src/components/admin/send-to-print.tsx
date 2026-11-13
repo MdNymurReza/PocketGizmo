@@ -1,20 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Printer } from "lucide-react";
-import { toast } from "sonner";
 import { sendOrderToPrint } from "@/app/admin/supplier/actions";
 import { Badge, Button } from "@/components/ui";
+import { useAction } from "@/lib/use-action";
 
 /**
  * Puts an order's items on the supplier's print list.
  * Once the order is on the list, it shows a link to the list instead.
  */
 export function SendToPrint({ orderId, sent, cancelled }: { orderId: string; sent: boolean; cancelled?: boolean }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const { pending, run } = useAction();
 
   if (sent) {
     return (
@@ -33,12 +30,10 @@ export function SendToPrint({ orderId, sent, cancelled }: { orderId: string; sen
       variant="secondary"
       disabled={pending}
       onClick={() =>
-        start(async () => {
-          const res = await sendOrderToPrint(orderId);
-          if (res.error) return void toast.error(res.error);
-          toast.success(res.count ? `Sent ${res.count} item${res.count === 1 ? "" : "s"} to print` : "Already on the print list");
-          router.refresh();
-        })
+        run(
+          () => sendOrderToPrint(orderId),
+          (r) => (r.count ? `Sent ${r.count} item${r.count === 1 ? "" : "s"} to print` : "Already on the print list"),
+        )
       }
     >
       <Printer className="size-4" /> Send to print

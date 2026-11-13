@@ -1,24 +1,27 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
 import { Check, PackageCheck, Play, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAction } from "@/lib/use-action";
 import { updateJob } from "@/app/supplier/actions";
-import { deleteJob, setJobsPaid } from "@/app/admin/supplier/actions";
+import { deleteJob, payJobs, setJobUnpaid } from "@/app/admin/supplier/actions";
 import { Badge, Button, Input } from "@/components/ui";
 import { ProductImage } from "@/components/shop/product-image";
-import { JOB_STATUS_COLOR, JOB_STATUS_LABEL, jobTotal, type PrintJob, type PrintJobStatus } from "@/lib/print-jobs";
+import { JOB_STATUS_COLOR, JOB_STATUS_LABEL, isDone, jobTotal, roundMoney, type PrintJob, type PrintJobStatus } from "@/lib/print-jobs";
 import { formatBDT, formatDay } from "@/lib/utils";
 
-/** One print job. The supplier sets status and cost; the admin can also mark it received, paid, or delete it. */
+/**
+ * One print job. The supplier sets status and cost; the admin can also mark it received, paid, or delete it.
+ * The list gives each card a key that changes when the job changes, so the cost and note fields
+ * always start from the saved values.
+ */
 export function PrintJobCard({ job, mode }: { job: PrintJob; mode: "supplier" | "admin" }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  const savedCost = job.unit_cost != null ? String(Number(job.unit_cost)) : "";
+  const { pending, run: runAction } = useAction();
+  const savedCost = job.unit_cost != null ? Number(job.unit_cost) : null;
   const savedNote = job.supplier_note ?? "";
-  const [cost, setCost] = useState(savedCost);
+  const [cost, setCost] = useState(savedCost != null ? String(savedCost) : "");
   const [note, setNote] = useState(savedNote);
   const [confirming, setConfirming] = useState(false);
 
@@ -26,24 +29,29 @@ export function PrintJobCard({ job, mode }: { job: PrintJob; mode: "supplier" | 
   const cancelled = job.status === "cancelled";
   const statusLocked = !isAdmin && (cancelled || job.status === "received");
   const costLocked = !isAdmin && (job.paid || cancelled);
-  const dirty = cost.trim() !== savedCost || note.trim() !== savedNote.trim();
-  const costNumber = cost.trim() === "" ? null : Number(cost);
+  // Compare as numbers, so "12.50" and 12.5 count as the same cost.
+  const costNumber = cost.trim() === "" ? null : roundMoney(Number(cost));
+  const costChanged = costNumber !== savedCost;
+  const noteChanged = note.trim() !== savedNote.trim();
+  const dirty = costChanged || noteChanged;
   const total = jobTotal(job);
 
-  const run = (fn: () => Promise<{ error?: string }>, ok: string) =>
-    start(async () => {
-      const res = await fn();
-      if (res.error) return void toast.error(res.error);
-      toast.success(ok);
-      setConfirming(false);
-      router.refresh();
-    });
+  const run = (fn: () => Promise<{ error?: string }>, ok: string) => runAction(fn, ok, () => setConfirming(false));
 
   const setStatus = (status: PrintJobStatus, ok: string) => run(() => updateJob({ id: job.id, status }), ok);
 
   const save = () => {
     if (costNumber != null && (!Number.isFinite(costNumber) || costNumber < 0)) return void toast.error("Enter a valid cost");
-    run(() => updateJob({ id: job.id, unitCost: costNumber ?? undefined, note: note.trim() }), "Saved");
+    // Send only what was edited, so an untouched field never overwrites a newer value.
+    run(
+      () =>
+        updateJob({
+          id: job.id,
+          ...(costChanged ? (costNumber == null ? { clearCost: true } : { unitCost: costNumber }) : {}),
+          ...(noteChanged ? { note: note.trim() } : {}),
+        }),
+      "Saved",
+    );
   };
 
   return (
@@ -173,17 +181,17 @@ export function PrintJobCard({ job, mode }: { job: PrintJob; mode: "supplier" | 
           {isAdmin && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {job.paid ? (
-                <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(() => setJobsPaid([job.id], false), "Marked as not paid")}>
+                <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(() => setJobUnpaid(job.id), "Marked as not paid")}>
                   Mark as not paid
                 </Button>
               ) : (
-                !cancelled && (
+                isDone(job.status) && (
                   <Button
                     size="sm"
                     variant="secondary"
                     disabled={pending || job.unit_cost == null}
                     title={job.unit_cost == null ? "Set a cost first" : undefined}
-                    onClick={() => run(() => setJobsPaid([job.id], true), "Marked as paid")}
+                    onClick={() => run(() => payJobs([job.id], total), "Marked as paid")}
                   >
                     Mark as paid{job.unit_cost != null && ` ${formatBDT(total)}`}
                   </Button>
