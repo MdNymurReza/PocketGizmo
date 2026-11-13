@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search, X } from "lucide-react";
+import { PackageOpen, Search, X } from "lucide-react";
 import { getCategories, getProducts, PAGE_SIZE, type ShopFilters } from "@/lib/queries";
-import { Button, ButtonLink, Input } from "@/components/ui";
+import { Button, ButtonLink, EmptyState, Input } from "@/components/ui";
 import { ProductGrid } from "@/components/shop/product-card";
 import { SortSelect } from "@/components/shop/sort-select";
 import { cn } from "@/lib/utils";
@@ -126,12 +126,22 @@ export default async function ShopPage({ searchParams }: Props) {
           </div>
           {products.length ? (
             <ProductGrid products={products} />
+          ) : chips.length ? (
+            <EmptyState
+              icon={Search}
+              title="No products match your filters"
+              text="Try a different search, or clear the filters to see everything."
+              action={<ButtonLink href="/shop" variant="secondary">Clear filters</ButtonLink>}
+              className="rounded-xl border border-dashed border-line py-16"
+            />
           ) : (
-            <div className="rounded-xl border border-dashed border-line px-6 py-16 text-center">
-              <p className="font-medium">No products found</p>
-              <p className="mt-1 text-sm text-ink-soft">Try a different search or clear your filters.</p>
-              <ButtonLink href="/shop" variant="secondary" className="mt-5">Clear filters</ButtonLink>
-            </div>
+            <EmptyState
+              icon={PackageOpen}
+              title="New products are on the way"
+              text="We're getting the shop ready. In the meantime, we can print something just for you."
+              action={<ButtonLink href="/custom-order">Request a custom print</ButtonLink>}
+              className="rounded-xl border border-dashed border-line py-16"
+            />
           )}
 
           {pages > 1 && (

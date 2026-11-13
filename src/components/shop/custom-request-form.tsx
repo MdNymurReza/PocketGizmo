@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
-import { CircleCheck, FileBox, Loader2, Upload, X } from "lucide-react";
+import { Check, CircleCheck, FileBox, Info, Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { submitCustomRequest } from "@/app/(shop)/custom-order/actions";
-import { CUSTOM_FILE_EXT, CUSTOM_MAX_FILES, CUSTOM_MAX_MB, MATERIALS } from "@/lib/custom";
+import { CUSTOM_FILE_EXT, CUSTOM_MAX_FILES, CUSTOM_MAX_MB, MATERIALS, filamentLabel, type Filament } from "@/lib/custom";
+import { FilamentSwatch } from "@/components/filament-swatch";
 import { Button, ButtonLink, Field, Input, Select, Textarea } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { Turnstile, type TurnstileHandle } from "@/components/turnstile";
@@ -15,7 +16,31 @@ type UploadedFile = { path: string; name: string; size: number };
 
 const fmtSize = (b: number) => (b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(b / 1024)} KB`);
 
-export function CustomRequestForm({ signedIn, defaults }: { signedIn: boolean; defaults: { name: string; phone: string; email: string } }) {
+export function CustomRequestForm({
+  signedIn,
+  defaults,
+  filaments,
+  maxColors,
+}: {
+  signedIn: boolean;
+  defaults: { name: string; phone: string; email: string };
+  /** Filaments in stock right now, managed in Admin → Filaments. */
+  filaments: Filament[];
+  /** How many colors one order can use (one per printer). */
+  maxColors: number;
+}) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const byMaterial = filaments.reduce<Record<string, Filament[]>>((acc, f) => {
+    (acc[f.material] ??= []).push(f);
+    return acc;
+  }, {});
+  const pickedFilaments = filaments.filter((f) => picked.includes(f.id));
+  const atLimit = picked.length >= maxColors;
+  const togglePick = (id: string) => {
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= maxColors ? p : [...p, id]));
+    setErrors((er) => ({ ...er, colors: "" }));
+  };
+
   const [folder] = useState(() => crypto.randomUUID());
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -61,7 +86,18 @@ export function CustomRequestForm({ signedIn, defaults }: { signedIn: boolean; d
     e.preventDefault();
     if (uploading) return void toast.error("Please wait for uploads to finish");
     start(async () => {
-      const res = await submitCustomRequest({ folder, ...form, files: files.map((f) => f.path), captcha });
+      // With a filament list, the material follows from the colors picked.
+      const material = filaments.length
+        ? [...new Set(pickedFilaments.map((f) => f.material))].join(", ") || MATERIALS[0]
+        : form.material;
+      const res = await submitCustomRequest({
+        folder,
+        ...form,
+        material,
+        colors: pickedFilaments.map(filamentLabel),
+        files: files.map((f) => f.path),
+        captcha,
+      });
       if (res.error) {
         captchaRef.current?.reset();
         setCaptcha("");
@@ -84,7 +120,7 @@ export function CustomRequestForm({ signedIn, defaults }: { signedIn: boolean; d
           {signedIn && " You can also see the quote in your account."}
         </p>
         <div className="mt-6 flex justify-center gap-2">
-          {signedIn && <ButtonLink href="/account">View in my account</ButtonLink>}
+          {signedIn && <ButtonLink href="/account/requests">View my requests</ButtonLink>}
           <ButtonLink href="/shop" variant="secondary">Browse the shop</ButtonLink>
         </div>
       </div>
@@ -156,19 +192,89 @@ export function CustomRequestForm({ signedIn, defaults }: { signedIn: boolean; d
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Material">
-            <Select value={form.material} onChange={set("material")}>
-              {MATERIALS.map((m) => <option key={m}>{m}</option>)}
-            </Select>
-          </Field>
-          <Field label="Color preference">
-            <Input value={form.color} onChange={set("color")} placeholder="e.g. Matte black" />
-          </Field>
-          <Field label="Quantity" error={errors.quantity}>
-            <Input type="number" min={1} value={form.quantity} onChange={set("quantity")} />
-          </Field>
+        {/* Colors: limited by the number of printers, chosen from the filaments in stock */}
+        <div className="rounded-xl border border-line p-5">
+          <p className="flex gap-2.5 rounded-lg bg-accent/5 px-3 py-2.5 text-sm">
+            <Info className="mt-0.5 size-4 shrink-0 text-accent" />
+            <span>
+              <span className="font-medium">
+                Up to {maxColors} color{maxColors === 1 ? "" : "s"} per order.
+              </span>{" "}
+              <span className="text-ink-soft">
+                We print on {maxColors} printer{maxColors === 1 ? "" : "s"}, so one order can&apos;t use more than {maxColors}{" "}
+                color{maxColors === 1 ? "" : "s"} at a time.
+              </span>
+            </span>
+          </p>
+
+          {filaments.length > 0 ? (
+            <fieldset className="mt-5">
+              <legend className="flex w-full flex-wrap items-baseline justify-between gap-2 text-sm">
+                <span className="font-medium">Filaments available now</span>
+                <span className={cn("tabular-nums", atLimit ? "font-medium text-ink" : "text-ink-soft")} aria-live="polite">
+                  {picked.length} of {maxColors} selected
+                </span>
+              </legend>
+              <div className="mt-3 grid gap-4">
+                {Object.entries(byMaterial).map(([material, list]) => (
+                  <div key={material}>
+                    <p className="mb-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">{material}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {list.map((f) => {
+                        const on = picked.includes(f.id);
+                        return (
+                          <button
+                            key={f.id}
+                            type="button"
+                            aria-pressed={on}
+                            disabled={!on && atLimit}
+                            onClick={() => togglePick(f.id)}
+                            className={cn(
+                              "inline-flex h-9 items-center gap-2 rounded-full border bg-white pr-3.5 pl-2.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                              on ? "border-ink font-medium ring-1 ring-ink" : "border-line hover:border-ink/40",
+                            )}
+                          >
+                            <FilamentSwatch hex={f.hex} />
+                            {f.color}
+                            {on && <Check className="size-3.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {errors.colors ? (
+                <p className="mt-3 text-sm text-danger" role="alert">
+                  {errors.colors}
+                </p>
+              ) : (
+                <p className="mt-3 text-xs text-ink-soft">
+                  {atLimit
+                    ? `That's the maximum. Remove one to pick a different color.`
+                    : "Not sure, or need a color that isn't listed? Leave this empty and tell us in your description."}
+                </p>
+              )}
+            </fieldset>
+          ) : (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <Field label="Material">
+                <Select value={form.material} onChange={set("material")}>
+                  {MATERIALS.map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Color preference" error={errors.color} hint={`Up to ${maxColors} colors`}>
+                <Input value={form.color} onChange={set("color")} placeholder="e.g. Matte black, white" />
+              </Field>
+            </div>
+          )}
         </div>
+
+        <Field label="Quantity" error={errors.quantity} className="max-w-40">
+          <Input type="number" min={1} value={form.quantity} onChange={set("quantity")} />
+        </Field>
       </div>
 
       <aside className="h-fit rounded-xl bg-surface p-6 lg:sticky lg:top-24">

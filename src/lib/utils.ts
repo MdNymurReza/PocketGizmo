@@ -52,3 +52,8 @@ export const PAYMENT_LABEL: Record<string, string> = {
   nagad: "Nagad",
   rocket: "Rocket",
 };
+
+/** Date only, e.g. "13 Nov 2026" (Dhaka time). */
+export function formatDay(d: string | Date) {
+  return new Date(d).toLocaleDateString("en-GB", { timeZone: "Asia/Dhaka", day: "numeric", month: "short", year: "numeric" });
+}

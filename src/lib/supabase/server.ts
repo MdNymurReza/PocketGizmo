@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/database.types";
@@ -24,8 +25,11 @@ export async function createClient() {
   );
 }
 
-/** Returns the current user and profile, or nulls. */
-export async function getSessionProfile() {
+/**
+ * Returns the current user and profile, or nulls.
+ * Cached per request, so the header, layouts and pages share one lookup.
+ */
+export const getSessionProfile = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -37,7 +41,7 @@ export async function getSessionProfile() {
     .eq("id", user.id)
     .single();
   return { supabase, user, profile };
-}
+});
 
 /** Throws unless the caller is an admin. Use at the top of every admin server action. */
 export async function requireAdmin() {

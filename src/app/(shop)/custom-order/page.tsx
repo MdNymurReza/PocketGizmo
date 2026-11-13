@@ -15,7 +15,11 @@ const STEPS = [
 ];
 
 export default async function CustomOrderPage() {
-  const { user, profile } = await getSessionProfile();
+  const { supabase, user, profile } = await getSessionProfile();
+  const [{ data: filaments }, { data: settings }] = await Promise.all([
+    supabase.from("filaments").select("id, material, color, hex, in_stock").eq("in_stock", true).order("material").order("color"),
+    supabase.from("settings").select("max_print_colors").eq("id", 1).single(),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
@@ -47,6 +51,8 @@ export default async function CustomOrderPage() {
         <CustomRequestForm
           signedIn={Boolean(user)}
           defaults={{ name: profile?.full_name ?? "", phone: profile?.phone ?? "", email: user?.email ?? "" }}
+          filaments={filaments ?? []}
+          maxColors={settings?.max_print_colors ?? 4}
         />
       </div>
     </div>

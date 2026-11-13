@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { User } from "lucide-react";
 import { getSessionProfile } from "@/lib/supabase/server";
+import { AccountMenu } from "./account-menu";
 import { Logo, buttonStyles } from "@/components/ui";
 import { CartButton } from "./cart-button";
 import { MobileNav } from "./mobile-nav";
@@ -30,8 +30,8 @@ export async function SiteHeader() {
       <HeaderShell>
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-4 transition-[height] duration-300 group-data-[scrolled]/header:h-14 sm:px-6">
           <MobileNav links={NAV} />
-          <Link href="/" aria-label="PocketGizmo home" className="mr-6">
-            <Logo />
+          <Link href="/" aria-label="PocketGizmo home" className="mr-4 shrink-0 sm:mr-6">
+            <Logo priority className="h-12 transition-[height] duration-300 group-data-[scrolled]/header:h-10" />
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
             {NAV.map((n) => (
@@ -44,13 +44,9 @@ export async function SiteHeader() {
                 Admin
               </Link>
             )}
-            <Link
-              href={user ? "/account" : "/login"}
-              className={buttonStyles({ variant: "ghost", size: "icon" })}
-              aria-label={user ? "My account" : "Log in"}
-            >
-              <User className="size-5" strokeWidth={1.75} />
-            </Link>
+            <AccountMenu
+              user={user ? { name: profile?.full_name ?? "", email: user.email ?? "", isAdmin: profile?.role === "admin" } : null}
+            />
             <CartButton />
           </div>
         </div>

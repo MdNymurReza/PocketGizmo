@@ -1,4 +1,5 @@
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
@@ -131,16 +132,48 @@ export function PageTitle({ children, action }: { children: React.ReactNode; act
   );
 }
 
-export function Logo({ className, inverted }: { className?: string; inverted?: boolean }) {
+/**
+ * The PocketGizmo logo (public/logo-trimmed.png, the uploaded logo with its empty margins cut off).
+ * Set the height with `className` (e.g. "h-12"); the width follows.
+ */
+export function Logo({ className, priority }: { className?: string; priority?: boolean }) {
   return (
-    <span className={cn("inline-flex items-center gap-2 text-lg font-semibold tracking-tight", className)}>
-      <span className={cn("grid size-7 place-items-center rounded-md", inverted ? "bg-white text-ink" : "bg-ink text-white")}>
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinejoin="round" aria-hidden>
-          <path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Z" />
-          <path d="M4 7.5 12 12l8-4.5M12 12v9" />
-        </svg>
-      </span>
-      PocketGizmo
-    </span>
+    <Image
+      src="/logo-trimmed.png"
+      alt="PocketGizmo"
+      width={486}
+      height={304}
+      priority={priority}
+      sizes="200px"
+      className={cn("h-12 w-auto select-none", className)}
+    />
+  );
+}
+
+/** Friendly placeholder for lists with nothing in them yet. */
+export function EmptyState({
+  icon: Icon,
+  title,
+  text,
+  action,
+  className,
+}: {
+  icon?: React.ElementType;
+  title: string;
+  text?: string;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col items-center px-6 py-12 text-center", className)}>
+      {Icon && (
+        <span className="grid size-11 place-items-center rounded-full bg-surface text-ink-soft">
+          <Icon className="size-5" strokeWidth={1.75} />
+        </span>
+      )}
+      <p className="mt-4 font-medium">{title}</p>
+      {text && <p className="mt-1 max-w-sm text-sm text-ink-soft">{text}</p>}
+      {action && <div className="mt-5 flex flex-wrap justify-center gap-2">{action}</div>}
+    </div>
   );
 }

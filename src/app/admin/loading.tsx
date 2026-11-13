@@ -3,14 +3,17 @@ import { Bone, Loading } from "@/components/skeletons";
 export default function AdminLoading() {
   return (
     <Loading label="Loading">
-      <Bone className="h-8 w-48" />
-      <Bone className="mt-2 h-4 w-72" />
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Bone className="h-4 w-40" />
+      <Bone className="mt-2 h-9 w-64 max-w-full" />
+      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
-          <Bone key={i} className="h-24 rounded-xl" />
+          <Bone key={i} className="h-28 rounded-xl" />
         ))}
       </div>
-      <Bone className="mt-6 h-80 rounded-xl" />
+      <div className="mt-4 grid gap-4 xl:grid-cols-3">
+        <Bone className="h-56 rounded-xl" />
+        <Bone className="h-56 rounded-xl xl:col-span-2" />
+      </div>
     </Loading>
   );
 }

@@ -29,9 +29,10 @@ export async function SiteFooter() {
     <footer className="mt-24 border-t border-line bg-surface">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:grid-cols-2 md:grid-cols-[1.5fr_1fr_1fr_1fr_1.2fr]">
         <div>
-          <Logo />
-          <p className="mt-3 max-w-xs text-sm text-ink-soft">
-            Precision 3D-printed accessories, designed and made to order in Bangladesh.
+          <Logo className="h-24" />
+          <p className="mt-4 text-sm font-medium">Little Gadgets. Big Smiles.</p>
+          <p className="mt-1 max-w-xs text-sm text-ink-soft">
+            3D-printed accessories, designed and made to order in Bangladesh.
           </p>
           <ul className="mt-4 space-y-1 text-sm text-ink-soft">
             {s?.contact_phone && <li><a href={`tel:${s.contact_phone}`} className="hover:text-ink">{s.contact_phone}</a></li>}

@@ -7,8 +7,9 @@
   --ink: #0b0b0f;
   --ink-soft: #5d6068;
   --line: #e4e4e8;
-  --accent: #2f5bff;
-  --accent-hover: #1f47e0;
+  /* Brand purple, taken from the logo and deepened so white text on it stays readable. */
+  --accent: #7c3aed;
+  --accent-hover: #6a2bd4;
   --success: #15803d;
   --warning: #b45309;
   --danger: #d92d20;

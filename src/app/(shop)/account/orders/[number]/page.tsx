@@ -5,6 +5,8 @@ import { ChevronLeft } from "lucide-react";
 import { getSessionProfile } from "@/lib/supabase/server";
 import type { TrackedOrder } from "@/lib/orders";
 import { OrderDetails } from "@/components/shop/order-details";
+import { ButtonLink } from "@/components/ui";
+import { formatDay } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Order details" };
 
@@ -40,11 +42,19 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ n
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <Link href="/account" className="mb-4 inline-flex items-center gap-1 text-sm text-ink-soft hover:text-ink">
-        <ChevronLeft className="size-4" /> My account
+    <div>
+      <Link href="/account/orders" className="mb-4 inline-flex items-center gap-1 text-sm text-ink-soft hover:text-ink">
+        <ChevronLeft className="size-4" /> All orders
       </Link>
-      <h1 className="mb-8 text-3xl font-semibold">Order {order.order_number}</h1>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold sm:text-3xl">Order {order.order_number}</h1>
+          <p className="mt-1 text-sm text-ink-soft">Placed {formatDay(order.created_at)}</p>
+        </div>
+        <ButtonLink href="/shop" variant="secondary" size="sm">
+          Shop again
+        </ButtonLink>
+      </div>
       <OrderDetails order={order} />
     </div>
   );

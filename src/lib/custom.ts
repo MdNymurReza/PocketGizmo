@@ -23,3 +23,8 @@ export const CUSTOM_STATUS_COLOR = {
 
 /** Display name for a stored file path like requests/<uuid>/<name>. */
 export const fileName = (path: string) => path.split("/").pop() ?? path;
+
+export type Filament = { id: string; material: string; color: string; hex: string | null; in_stock: boolean };
+
+/** Label stored on a request for a chosen filament, e.g. "Black (PLA)". */
+export const filamentLabel = (f: Pick<Filament, "material" | "color">) => `${f.color} (${f.material})`;

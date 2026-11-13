@@ -8,7 +8,8 @@ import { PAYMENT_LABEL, formatBDT, formatDate, variantLabel } from "@/lib/utils"
 /** Shared order view used by the confirmation, tracking and account pages. */
 export function OrderDetails({ order }: { order: TrackedOrder }) {
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
+    <div className="@container">
+    <div className="grid gap-8 @4xl:grid-cols-[1fr_360px]">
       <div className="grid h-fit gap-8">
         <section className="rounded-xl border border-line p-6">
           <h2 className="mb-5 font-semibold">Order status</h2>
@@ -78,6 +79,7 @@ export function OrderDetails({ order }: { order: TrackedOrder }) {
           </p>
         </section>
       </aside>
+    </div>
     </div>
   );
 }

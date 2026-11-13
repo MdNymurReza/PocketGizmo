@@ -17,8 +17,8 @@ export const viewport: Viewport = { themeColor: "#ffffff" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className={`${geist.variable} ${geistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
         <MotionProvider>{children}</MotionProvider>
         <Toaster position="bottom-right" closeButton toastOptions={{ className: "font-sans" }} />
       </body>

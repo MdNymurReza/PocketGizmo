@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Banknote, Layers, ShieldCheck, Truck } from "lucide-react";
 import { getCategories, getFeatured } from "@/lib/queries";
-import { ButtonLink } from "@/components/ui";
+import { ButtonLink, EmptyState, Logo } from "@/components/ui";
 import { ProductGrid } from "@/components/shop/product-card";
 import { ProductImage } from "@/components/shop/product-image";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
@@ -76,7 +76,7 @@ export default async function HomePage() {
             </StaggerItem>
           </Stagger>
 
-          {heroProducts.length > 0 && (
+          {heroProducts.length > 0 ? (
             <Stagger onMount gap={0.12} className="grid grid-cols-2 gap-4">
               {heroProducts.map((p, i) => (
                 <StaggerItem key={p.id} className={i === 0 ? "row-span-2" : ""}>
@@ -97,6 +97,12 @@ export default async function HomePage() {
                 </StaggerItem>
               ))}
             </Stagger>
+          ) : (
+            /* No featured products yet: show the brand instead of an empty column. */
+            <Reveal className="relative isolate grid min-h-72 place-items-center overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-white to-accent/10 p-10 lg:min-h-96">
+              <div aria-hidden className="pointer-events-none absolute -right-16 -bottom-20 -z-10 size-72 rounded-full bg-accent/20 blur-3xl" />
+              <Logo priority className="h-auto w-full max-w-sm" />
+            </Reveal>
           )}
         </div>
       </section>
@@ -146,7 +152,17 @@ export default async function HomePage() {
           <SectionHeading title="Best sellers" href="/shop" linkLabel="Shop all" />
         </Reveal>
         <div className="mt-8">
-          {featured.length ? <ProductGrid products={featured} /> : <p className="text-ink-soft">New products are on the way.</p>}
+          {featured.length ? (
+            <ProductGrid products={featured} />
+          ) : (
+            <EmptyState
+              icon={Layers}
+              title="New products are on the way"
+              text="We're getting the shop ready. In the meantime, we can print something just for you."
+              action={<ButtonLink href="/custom-order" variant="secondary">Request a custom print</ButtonLink>}
+              className="rounded-xl border border-dashed border-line"
+            />
+          )}
         </div>
       </section>
 

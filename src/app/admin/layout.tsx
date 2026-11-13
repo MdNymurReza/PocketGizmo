@@ -29,7 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <aside className="border-b border-line bg-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-b-0">
         <div className="flex items-center justify-between gap-2 p-4">
           <Link href="/admin" aria-label="Admin home" className="flex items-center gap-2">
-            <Logo />
+            <Logo priority className="h-11" />
             <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-soft uppercase">Admin</span>
           </Link>
           <Link href="/" className="inline-flex items-center gap-1 text-sm text-ink-soft hover:text-ink lg:hidden">

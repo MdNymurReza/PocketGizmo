@@ -7,6 +7,18 @@ export type Database = {
   __InternalSupabase: { PostgrestVersion: "14.18" };
   public: {
     Tables: {
+      reviews: {
+        Row: { id: string; product_id: string; user_id: string; author_name: string; rating: number; comment: string; status: E["review_status"]; created_at: string; updated_at: string };
+        Insert: { id?: string; product_id: string; user_id: string; author_name: string; rating: number; comment?: string; status?: E["review_status"]; created_at?: string; updated_at?: string };
+        Update: { id?: string; product_id?: string; user_id?: string; author_name?: string; rating?: number; comment?: string; status?: E["review_status"]; created_at?: string; updated_at?: string };
+        Relationships: [{ foreignKeyName: "reviews_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] }];
+      };
+      filaments: {
+        Row: { id: string; material: string; color: string; hex: string | null; in_stock: boolean; created_at: string };
+        Insert: { id?: string; material: string; color: string; hex?: string | null; in_stock?: boolean; created_at?: string };
+        Update: { id?: string; material?: string; color?: string; hex?: string | null; in_stock?: boolean; created_at?: string };
+        Relationships: [];
+      };
       blocked_phones: {
         Row: { phone: string; reason: string | null; created_at: string; created_by: string | null };
         Insert: { phone: string; reason?: string | null; created_at?: string; created_by?: string | null };
@@ -95,9 +107,9 @@ export type Database = {
         Relationships: [];
       };
       settings: {
-        Row: { cod_advance: "off" | "outside_dhaka" | "all"; bkash_number: string | null; contact_email: string | null; contact_phone: string | null; facebook_url: string | null; free_shipping_over: number | null; id: number; nagad_number: string | null; payment_instructions: string; rocket_number: string | null; shipping_inside_dhaka: number; shipping_outside_dhaka: number; store_name: string; updated_at: string };
-        Insert: { cod_advance?: "off" | "outside_dhaka" | "all"; bkash_number?: string | null; contact_email?: string | null; contact_phone?: string | null; facebook_url?: string | null; free_shipping_over?: number | null; id?: number; nagad_number?: string | null; payment_instructions?: string; rocket_number?: string | null; shipping_inside_dhaka?: number; shipping_outside_dhaka?: number; store_name?: string; updated_at?: string };
-        Update: { cod_advance?: "off" | "outside_dhaka" | "all"; bkash_number?: string | null; contact_email?: string | null; contact_phone?: string | null; facebook_url?: string | null; free_shipping_over?: number | null; id?: number; nagad_number?: string | null; payment_instructions?: string; rocket_number?: string | null; shipping_inside_dhaka?: number; shipping_outside_dhaka?: number; store_name?: string; updated_at?: string };
+        Row: { cod_advance: "off" | "outside_dhaka" | "all"; max_print_colors: number; bkash_number: string | null; contact_email: string | null; contact_phone: string | null; facebook_url: string | null; free_shipping_over: number | null; id: number; nagad_number: string | null; payment_instructions: string; rocket_number: string | null; shipping_inside_dhaka: number; shipping_outside_dhaka: number; store_name: string; updated_at: string };
+        Insert: { cod_advance?: "off" | "outside_dhaka" | "all"; max_print_colors?: number; bkash_number?: string | null; contact_email?: string | null; contact_phone?: string | null; facebook_url?: string | null; free_shipping_over?: number | null; id?: number; nagad_number?: string | null; payment_instructions?: string; rocket_number?: string | null; shipping_inside_dhaka?: number; shipping_outside_dhaka?: number; store_name?: string; updated_at?: string };
+        Update: { cod_advance?: "off" | "outside_dhaka" | "all"; max_print_colors?: number; bkash_number?: string | null; contact_email?: string | null; contact_phone?: string | null; facebook_url?: string | null; free_shipping_over?: number | null; id?: number; nagad_number?: string | null; payment_instructions?: string; rocket_number?: string | null; shipping_inside_dhaka?: number; shipping_outside_dhaka?: number; store_name?: string; updated_at?: string };
         Relationships: [];
       };
     };
@@ -106,6 +118,8 @@ export type Database = {
       admin_phone_stats: { Args: { p_phones: string[] }; Returns: { phone: string; total: number; delivered: number; cancelled: number; blocked: boolean; block_reason: string | null }[] };
       admin_adjust_stock: { Args: { p_delta: number; p_note: string; p_reason: E["inventory_reason"]; p_variant: string }; Returns: number };
       admin_set_order_status: { Args: { p_note: string; p_order: string; p_status: E["order_status"] }; Returns: undefined };
+      can_review: { Args: { p_product: string }; Returns: boolean };
+      submit_review: { Args: { p_product: string; p_rating: number; p_comment: string }; Returns: E["review_status"] };
       compute_coupon_discount: { Args: { p_code: string; p_subtotal: number; p_user: string }; Returns: { coupon_id: string; discount: number; error: string }[] };
       is_admin: { Args: never; Returns: boolean };
       place_order: {
@@ -124,6 +138,7 @@ export type Database = {
       order_status: "pending" | "confirmed" | "printing" | "shipped" | "delivered" | "cancelled";
       payment_method: "cod" | "bkash" | "nagad" | "rocket";
       payment_status: "unpaid" | "pending_verification" | "paid" | "rejected" | "refunded";
+      review_status: "pending" | "approved" | "rejected";
       shipping_zone: "inside_dhaka" | "outside_dhaka";
       user_role: "customer" | "admin";
     };
