@@ -15,13 +15,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (profile?.role !== "admin") redirect("/account");
 
   // Counts for the sidebar badges: things that are waiting on the admin.
-  const [pendingOrders, newRequests] = await Promise.all([
+  const [pendingOrders, newRequests, pendingReviews] = await Promise.all([
     supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("custom_requests").select("id", { count: "exact", head: true }).eq("status", "new"),
+    supabase.from("reviews").select("id", { count: "exact", head: true }).eq("status", "pending"),
   ]);
   const badges = {
     "/admin/orders": pendingOrders.count ?? 0,
     "/admin/custom-requests": newRequests.count ?? 0,
+    "/admin/reviews": pendingReviews.count ?? 0,
   };
 
   return (

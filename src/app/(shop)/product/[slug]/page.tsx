@@ -7,6 +7,9 @@ import { Gallery } from "@/components/shop/gallery";
 import { PurchasePanel } from "@/components/shop/purchase-panel";
 import { ProductGrid } from "@/components/shop/product-card";
 import { Reveal } from "@/components/motion";
+import { createClient } from "@/lib/supabase/server";
+import { ReviewsSection } from "@/components/shop/reviews-section";
+import { Stars } from "@/components/shop/stars";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -33,7 +36,20 @@ export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
   if (!product || product.product_variants.length === 0) notFound();
-  const related = await getRelated(product.id, product.category_id);
+  const supabase = await createClient();
+  const [related, { data: reviewRows }] = await Promise.all([
+    getRelated(product.id, product.category_id),
+    // Row-level security already limits visitors to approved reviews; the filter keeps the author's own pending one out of the public list.
+    supabase
+      .from("reviews")
+      .select("id, author_name, rating, comment, created_at")
+      .eq("product_id", product.id)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(200),
+  ]);
+  const reviews = reviewRows ?? [];
+  const ratingAvg = reviews.length ? reviews.reduce((n, r) => n + r.rating, 0) / reviews.length : 0;
 
   const variants = product.product_variants.map((v) => ({ id: v.id, options: v.options, price: Number(v.price), stock: v.stock }));
   const inStock = variants.some((v) => v.stock > 0);
@@ -51,6 +67,9 @@ export default async function ProductPage({ params }: Props) {
       highPrice: Math.max(...variants.map((v) => v.price)),
       availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
     },
+    ...(reviews.length > 0 && {
+      aggregateRating: { "@type": "AggregateRating", ratingValue: Number(ratingAvg.toFixed(1)), reviewCount: reviews.length },
+    }),
   };
 
   return (
@@ -76,6 +95,18 @@ export default async function ProductPage({ params }: Props) {
         <div className="h-fit lg:sticky lg:top-24 lg:pt-2">
           {product.categories && <p className="text-sm text-ink-soft">{product.categories.name}</p>}
           <h1 className="mt-1 text-3xl font-semibold sm:text-4xl">{product.name}</h1>
+          <a href="#reviews" className="mt-3 inline-flex items-center gap-2 text-sm text-ink-soft hover:text-ink">
+            {reviews.length > 0 ? (
+              <>
+                <Stars rating={ratingAvg} />
+                <span>
+                  <span className="font-medium text-ink">{ratingAvg.toFixed(1)}</span> · {reviews.length} review{reviews.length === 1 ? "" : "s"}
+                </span>
+              </>
+            ) : (
+              <span className="underline underline-offset-4">No reviews yet</span>
+            )}
+          </a>
           <div className="mt-6">
             <PurchasePanel
               product={{ id: product.id, slug: product.slug, name: product.name, image: product.images[0] ?? null }}
@@ -100,6 +131,8 @@ export default async function ProductPage({ params }: Props) {
           )}
         </div>
       </div>
+
+      <ReviewsSection productId={product.id} slug={product.slug} reviews={reviews} />
 
       {related.length > 0 && (
         <section className="mt-24">

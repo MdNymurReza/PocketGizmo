@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Star } from "lucide-react";
 import { getSessionProfile } from "@/lib/supabase/server";
 import type { TrackedOrder } from "@/lib/orders";
 import { OrderDetails } from "@/components/shop/order-details";
@@ -23,6 +23,18 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ n
     .eq("user_id", user.id)
     .maybeSingle();
   if (!o) notFound();
+
+  // Delivered orders invite a review of each product that is still in the shop.
+  const productIds = [...new Set(o.order_items.map((i) => i.product_id).filter((id): id is string => Boolean(id)))];
+  const [{ data: products }, { data: myReviews }] =
+    o.status === "delivered" && productIds.length
+      ? await Promise.all([
+          supabase.from("products").select("id, name, slug").in("id", productIds).eq("is_active", true),
+          supabase.from("reviews").select("product_id").eq("user_id", user.id).in("product_id", productIds),
+        ])
+      : [{ data: [] }, { data: [] }];
+  const reviewable = products ?? [];
+  const reviewed = new Set((myReviews ?? []).map((r) => r.product_id));
 
   const order: TrackedOrder = {
     ...o,
@@ -55,6 +67,25 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ n
           Shop again
         </ButtonLink>
       </div>
+
+      {reviewable.length > 0 && (
+        <div className="mb-8 rounded-xl border border-accent/25 bg-accent/5 p-5">
+          <p className="flex items-center gap-2 font-medium">
+            <Star className="size-4 fill-amber-400" strokeWidth={0} /> How was your order?
+          </p>
+          <p className="mt-1 text-sm text-ink-soft">Your review helps other customers choose.</p>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {reviewable.map((p) => (
+              <li key={p.id}>
+                <ButtonLink href={`/product/${p.slug}#reviews`} variant="secondary" size="sm">
+                  {reviewed.has(p.id) ? "Edit review of" : "Review"} {p.name}
+                </ButtonLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <OrderDetails order={order} />
     </div>
   );

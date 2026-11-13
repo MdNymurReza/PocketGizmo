@@ -9,6 +9,7 @@ import {
   Inbox,
   PenTool,
   Plus,
+  Star,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
@@ -70,11 +71,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const { supabase, profile } = await getSessionProfile();
   const openCount = (status: OrderStatus) => supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", status);
 
-  const [{ data, error }, { data: prevData }, { count: newRequests }, { data: recent }, { count: products }, { data: settings }, ...pipelineCounts] =
+  const [{ data, error }, { data: prevData }, { count: newRequests }, { count: newReviews }, { data: recent }, { count: products }, { data: settings }, ...pipelineCounts] =
     await Promise.all([
       supabase.rpc("sales_summary", { p_from: from.toISOString(), p_to: to.toISOString() }),
       supabase.rpc("sales_summary", { p_from: prevFrom.toISOString(), p_to: prevTo.toISOString() }),
       supabase.from("custom_requests").select("id", { count: "exact", head: true }).eq("status", "new"),
+      supabase.from("reviews").select("id", { count: "exact", head: true }).eq("status", "pending"),
       supabase
         .from("orders")
         .select("id, order_number, customer_name, total, status, payment_method, payment_status, advance_status, created_at")
@@ -118,6 +120,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     },
     toConfirm > 0 && { href: "/admin/orders?tab=pending", icon: Inbox, count: toConfirm, text: `new order${toConfirm > 1 ? "s" : ""} to confirm` },
     !!newRequests && { href: "/admin/custom-requests?tab=new", icon: PenTool, count: newRequests, text: `custom request${newRequests > 1 ? "s" : ""} to quote` },
+    !!newReviews && { href: "/admin/reviews", icon: Star, count: newReviews, text: `review${newReviews > 1 ? "s" : ""} to approve` },
     s.low_stock.length > 0 && {
       href: "/admin/inventory?low=1",
       icon: AlertTriangle,
