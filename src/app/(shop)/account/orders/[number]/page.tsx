@@ -49,6 +49,7 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ n
       unit_price: Number(i.unit_price),
       quantity: i.quantity,
       line_total: Number(i.line_total),
+      details: i.details,
     })),
     history: [...o.order_status_history].sort((a, b) => a.created_at.localeCompare(b.created_at)),
   };

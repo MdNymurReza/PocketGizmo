@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { Minus, Plus, ShoppingBag, X } from "lucide-react";
-import { cartSubtotal, useCart } from "@/lib/cart-store";
+import { DETAILS_MAX, cartSubtotal, useCart } from "@/lib/cart-store";
 import { useCartSync } from "@/lib/use-cart-sync";
 import { ButtonLink } from "@/components/ui";
 import { ProductImage } from "./product-image";
@@ -14,6 +14,7 @@ export function CartView() {
   const items = useCart((s) => s.items);
   const setQty = useCart((s) => s.setQty);
   const remove = useCart((s) => s.remove);
+  const setDetails = useCart((s) => s.setDetails);
 
   if (!ready) {
     return (
@@ -72,6 +73,17 @@ export function CartView() {
                   <X className="size-4" />
                 </button>
               </div>
+              <label className="mt-3 block text-sm">
+                <span className="text-ink-soft">Details (optional)</span>
+                <input
+                  type="text"
+                  value={i.details ?? ""}
+                  onChange={(e) => setDetails(i.variantId, e.target.value)}
+                  maxLength={DETAILS_MAX}
+                  placeholder="e.g. name and number for a jersey"
+                  className="mt-1 h-9 w-full max-w-sm rounded-lg border border-line bg-white px-3 text-sm outline-none placeholder:text-ink-soft/60 focus:border-accent focus:ring-2 focus:ring-accent/20"
+                />
+              </label>
               <div className="mt-auto flex items-center justify-between gap-2 pt-3">
                 <div className="flex h-9 items-center rounded-lg border border-line">
                   <button className="grid h-full w-9 place-items-center text-ink-soft hover:text-ink" onClick={() => setQty(i.variantId, i.quantity - 1)} aria-label="Decrease quantity">

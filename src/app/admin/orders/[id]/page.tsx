@@ -53,6 +53,11 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                       <p className="font-medium">{it.product_name}</p>
                     )}
                     <p className="text-ink-soft">{variantLabel(it.variant_options as Record<string, string>)}</p>
+                    {it.details && (
+                      <p className="mt-1.5 inline-block rounded-md bg-warning/10 px-2 py-1 font-medium break-words text-ink">
+                        Customer details: {it.details}
+                      </p>
+                    )}
                   </div>
                   <span className="text-ink-soft tabular-nums">{formatBDT(it.unit_price)} × {it.quantity}</span>
                   <span className="w-20 text-right font-medium tabular-nums">{formatBDT(it.line_total)}</span>

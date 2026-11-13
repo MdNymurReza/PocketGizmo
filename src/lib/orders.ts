@@ -18,7 +18,7 @@ export type TrackedOrder = {
   advance_amount: number;
   advance_method: Enums<"payment_method"> | null;
   advance_status: "none" | "pending" | "verified" | "rejected";
-  items: { name: string; options: Record<string, string>; image: string | null; unit_price: number; quantity: number; line_total: number }[];
+  items: { name: string; options: Record<string, string>; image: string | null; unit_price: number; quantity: number; line_total: number; details?: string | null }[];
   history: { status: Enums<"order_status">; note: string | null; created_at: string }[];
 };
 

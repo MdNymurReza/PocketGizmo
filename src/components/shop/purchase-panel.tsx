@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Banknote, Check, Minus, Plus, ShoppingBag, Truck, Zap } from "lucide-react";
 import { toast } from "sonner";
-import { useCart } from "@/lib/cart-store";
+import { DETAILS_MAX, useCart } from "@/lib/cart-store";
 import { Button } from "@/components/ui";
 import { FilamentSwatch } from "@/components/filament-swatch";
 import { cn, formatBDT } from "@/lib/utils";
@@ -36,6 +36,7 @@ export function PurchasePanel({
   const firstAvailable = variants.find((v) => v.stock > 0) ?? variants[0];
   const [selected, setSelected] = useState<Record<string, string>>(firstAvailable?.options ?? {});
   const [qty, setQty] = useState(1);
+  const [details, setDetails] = useState("");
   const [justAdded, setJustAdded] = useState(false);
   const addedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(addedTimer.current), []);
@@ -77,6 +78,7 @@ export function PurchasePanel({
         image: product.image,
         price: variant.price,
         stock: variant.stock,
+        details: details.trim() || undefined,
       },
       Math.min(qty, maxQty),
     );
@@ -86,6 +88,7 @@ export function PurchasePanel({
       action: { label: "View cart", onClick: () => router.push("/cart") },
     });
     setQty(1);
+    setDetails("");
     setJustAdded(true);
     clearTimeout(addedTimer.current);
     addedTimer.current = setTimeout(() => setJustAdded(false), 1600);
@@ -190,6 +193,22 @@ export function PurchasePanel({
           </fieldset>
         );
       })}
+
+      {/* Optional details for personalised items */}
+      <label className="block">
+        <span className="text-sm font-medium">
+          Details <span className="font-normal text-ink-soft">(optional)</span>
+        </span>
+        <textarea
+          rows={2}
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          maxLength={DETAILS_MAX}
+          placeholder="e.g. the name and number for a jersey"
+          className="mt-2 block w-full resize-none rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none placeholder:text-ink-soft/60 focus:border-accent focus:ring-2 focus:ring-accent/20"
+        />
+        <span className="mt-1.5 block text-xs text-ink-soft">Anything we should print or change on this item. You can edit it in the cart.</span>
+      </label>
 
       {/* Quantity and total */}
       <div className="flex flex-wrap items-center justify-between gap-4">

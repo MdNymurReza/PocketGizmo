@@ -94,7 +94,7 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
     return zone === "inside_dhaka" ? settings.insideDhaka : settings.outsideDhaka;
   }, [zone, subtotal, discount, settings]);
   const total = subtotal - discount + shipping;
-  const payload = () => items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity }));
+  const payload = () => items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity, details: i.details?.trim() || undefined }));
 
   const applyCoupon = () =>
     startCoupon(async () => {
@@ -364,6 +364,7 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
               <div className="min-w-0 flex-1 text-sm">
                 <p className="truncate font-medium">{i.name}</p>
                 {variantLabel(i.options) && <p className="text-ink-soft">{variantLabel(i.options)}</p>}
+                {i.details?.trim() && <p className="mt-0.5 break-words text-ink-soft">Details: {i.details.trim()}</p>}
               </div>
               <span className="text-sm tabular-nums">{formatBDT(i.price * i.quantity)}</span>
             </li>

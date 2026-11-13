@@ -59,9 +59,9 @@ export type Database = {
         ];
       };
       order_items: {
-        Row: { id: string; image: string | null; line_total: number; order_id: string; product_id: string | null; product_name: string; quantity: number; unit_price: number; variant_id: string | null; variant_options: Json };
-        Insert: { id?: string; image?: string | null; line_total: number; order_id: string; product_id?: string | null; product_name: string; quantity: number; unit_price: number; variant_id?: string | null; variant_options?: Json };
-        Update: { id?: string; image?: string | null; line_total?: number; order_id?: string; product_id?: string | null; product_name?: string; quantity?: number; unit_price?: number; variant_id?: string | null; variant_options?: Json };
+        Row: { details: string | null; id: string; image: string | null; line_total: number; order_id: string; product_id: string | null; product_name: string; quantity: number; unit_price: number; variant_id: string | null; variant_options: Json };
+        Insert: { details?: string | null; id?: string; image?: string | null; line_total: number; order_id: string; product_id?: string | null; product_name: string; quantity: number; unit_price: number; variant_id?: string | null; variant_options?: Json };
+        Update: { details?: string | null; id?: string; image?: string | null; line_total?: number; order_id?: string; product_id?: string | null; product_name?: string; quantity?: number; unit_price?: number; variant_id?: string | null; variant_options?: Json };
         Relationships: [
           { foreignKeyName: "order_items_order_id_fkey"; columns: ["order_id"]; isOneToOne: false; referencedRelation: "orders"; referencedColumns: ["id"] },
           { foreignKeyName: "order_items_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] },

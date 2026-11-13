@@ -34,6 +34,7 @@ export function OrderDetails({ order }: { order: TrackedOrder }) {
                     {variantLabel(it.options)}
                     {variantLabel(it.options) && " · "}Qty {it.quantity}
                   </p>
+                  {it.details && <p className="mt-0.5 break-words text-ink-soft">Details: {it.details}</p>}
                 </div>
                 <span className="text-sm tabular-nums">{formatBDT(it.line_total)}</span>
               </li>

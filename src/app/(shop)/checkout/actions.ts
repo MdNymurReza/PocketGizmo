@@ -9,7 +9,7 @@ import { esc, notifyAdmin, siteUrl } from "@/lib/notify";
 import { PAYMENT_LABEL, formatBDT } from "@/lib/utils";
 
 const itemsSchema = z
-  .array(z.object({ variant_id: z.uuid(), quantity: z.number().int().min(1).max(99) }))
+  .array(z.object({ variant_id: z.uuid(), quantity: z.number().int().min(1).max(99), details: z.string().trim().max(300).optional() }))
   .min(1, "Your cart is empty")
   .max(50);
 
@@ -134,7 +134,7 @@ async function notifyNewOrder(orderNumber: string, o: z.infer<typeof orderSchema
   const byId = new Map((variants ?? []).map((v) => [v.id, v]));
   const lines = o.items.map((i) => {
     const v = byId.get(i.variant_id);
-    return `• ${esc(v?.products?.name ?? "Item")} × ${i.quantity}`;
+    return `• ${esc(v?.products?.name ?? "Item")} × ${i.quantity}${i.details ? `\n   ✏️ ${esc(i.details)}` : ""}`;
   });
   const subtotal = o.items.reduce((n, i) => n + Number(byId.get(i.variant_id)?.price ?? 0) * i.quantity, 0);
 

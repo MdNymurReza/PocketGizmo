@@ -13,12 +13,17 @@ export type CartItem = {
   price: number; // display only; the server re-prices at checkout
   stock: number;
   quantity: number;
+  /** Optional note for this item, e.g. the name and number for a jersey. */
+  details?: string;
 };
+
+export const DETAILS_MAX = 300;
 
 type CartState = {
   items: CartItem[];
   add: (item: Omit<CartItem, "quantity">, qty?: number) => void;
   setQty: (variantId: string, qty: number) => void;
+  setDetails: (variantId: string, details: string) => void;
   remove: (variantId: string) => void;
   clear: () => void;
   /** Apply fresh price/stock from the server. Returns names of items that changed or were removed. */
@@ -36,7 +41,7 @@ export const useCart = create<CartState>()(
             return {
               items: s.items.map((i) =>
                 i.variantId === item.variantId
-                  ? { ...i, ...item, quantity: Math.min(i.quantity + qty, item.stock) }
+                  ? { ...i, ...item, details: item.details || i.details, quantity: Math.min(i.quantity + qty, item.stock) }
                   : i,
               ),
             };
@@ -49,6 +54,8 @@ export const useCart = create<CartState>()(
             .map((i) => (i.variantId === variantId ? { ...i, quantity: Math.max(0, Math.min(qty, i.stock)) } : i))
             .filter((i) => i.quantity > 0),
         })),
+      setDetails: (variantId, details) =>
+        set((s) => ({ items: s.items.map((i) => (i.variantId === variantId ? { ...i, details: details.slice(0, DETAILS_MAX) } : i)) })),
       remove: (variantId) => set((s) => ({ items: s.items.filter((i) => i.variantId !== variantId) })),
       clear: () => set({ items: [] }),
       sync: (fresh) => {
