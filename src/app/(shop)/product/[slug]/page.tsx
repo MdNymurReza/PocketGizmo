@@ -94,11 +94,14 @@ export default async function ProductPage({ params }: Props) {
         <span className="truncate text-ink">{product.name}</span>
       </nav>
 
-      <div className="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:gap-16">
-        <Gallery images={product.images} name={product.name} />
-        <div className="h-fit lg:sticky lg:top-24 lg:pt-2">
+      {/* The photo column has a fixed width on desktop, so the photo stays one size whatever the screen. */}
+      <div className="grid items-start gap-10 lg:grid-cols-[440px_minmax(0,1fr)] lg:gap-12 xl:grid-cols-[520px_minmax(0,1fr)] xl:gap-16">
+        <div className="lg:sticky lg:top-24">
+          <Gallery images={product.images} name={product.name} />
+        </div>
+        <div className="min-w-0 lg:max-w-xl lg:pt-2">
           {product.categories && <p className="text-sm text-ink-soft">{product.categories.name}</p>}
-          <h1 className="mt-1 text-3xl font-semibold sm:text-4xl">{product.name}</h1>
+          <h1 className="mt-1 text-2xl font-semibold break-words sm:text-3xl">{product.name}</h1>
           <a href="#reviews" className="mt-3 inline-flex items-center gap-2 text-sm text-ink-soft hover:text-ink">
             {reviews.length > 0 ? (
               <>
@@ -121,7 +124,7 @@ export default async function ProductPage({ params }: Props) {
             />
           </div>
 
-          <ul className="mt-6 grid grid-cols-2 gap-3 text-sm text-ink-soft">
+          <ul className="mt-6 grid gap-3 text-sm text-ink-soft sm:grid-cols-2">
             {PERKS.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-3 rounded-xl bg-surface px-3.5 py-3">
                 <Icon className="size-4 shrink-0 text-ink" strokeWidth={1.75} /> {text}

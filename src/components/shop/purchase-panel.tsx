@@ -41,17 +41,6 @@ export function PurchasePanel({
   const addedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(addedTimer.current), []);
 
-  // On phones, a buy bar sticks to the bottom once the main buttons scroll out of view.
-  const actionsRef = useRef<HTMLDivElement>(null);
-  const [showBar, setShowBar] = useState(false);
-  useEffect(() => {
-    const el = actionsRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => setShowBar(!e.isIntersecting && e.boundingClientRect.top < 0));
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
   const match = (sel: Record<string, string>) => variants.find((v) => optionNames.every((n) => v.options[n] === sel[n]));
   const variant = match(selected);
   const alreadyInCart = inCart.find((i) => i.variantId === variant?.id)?.quantity ?? 0;
@@ -123,7 +112,7 @@ export function PurchasePanel({
   );
 
   return (
-    <div className="grid gap-6">
+    <div className="@container grid min-w-0 gap-6">
       {/* Price */}
       <div className="rounded-2xl border border-line bg-surface/60 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -134,7 +123,7 @@ export function PurchasePanel({
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25 }}
-                className="text-4xl font-semibold tracking-tight tabular-nums"
+                className="text-3xl font-semibold tracking-tight tabular-nums"
               >
                 {formatBDT(price)}
               </motion.span>
@@ -232,11 +221,11 @@ export function PurchasePanel({
       </div>
 
       {/* Buttons */}
-      <div ref={actionsRef} className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 @sm:grid-cols-2">
         <Button
           size="lg"
           variant="accent"
-          className={cn("h-13 overflow-hidden shadow-sm shadow-accent/30", justAdded && "bg-success hover:bg-success", !canBuy && "sm:col-span-2")}
+          className={cn("h-12 w-full min-w-0 overflow-hidden px-4 shadow-sm shadow-accent/30", justAdded && "bg-success hover:bg-success", !canBuy && "@sm:col-span-2")}
           onClick={() => addToCart(false)}
           disabled={!variant || (maxQty < 1 && !justAdded)}
         >
@@ -254,7 +243,7 @@ export function PurchasePanel({
           </AnimatePresence>
         </Button>
         {canBuy && (
-          <Button size="lg" className="h-13" onClick={() => addToCart(true)}>
+          <Button size="lg" className="h-12 w-full min-w-0 px-4" onClick={() => addToCart(true)}>
             <Zap className="size-4" /> Buy now
           </Button>
         )}
@@ -280,29 +269,6 @@ export function PurchasePanel({
           <p className="font-medium">Pay with bKash, Nagad, Rocket or cash on delivery</p>
         </li>
       </ul>
-
-      {/* Sticky buy bar on phones */}
-      <AnimatePresence>
-        {showBar && canBuy && (
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgb(0_0_0/0.06)] backdrop-blur lg:hidden"
-          >
-            <div className="mx-auto flex max-w-7xl items-center gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs text-ink-soft">{product.name}</p>
-                <p className="text-lg leading-tight font-semibold tabular-nums">{formatBDT(total)}</p>
-              </div>
-              <Button variant="accent" size="lg" className={cn(justAdded && "bg-success hover:bg-success")} onClick={() => addToCart(false)}>
-                {addLabel}
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

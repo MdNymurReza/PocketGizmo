@@ -13,9 +13,9 @@ export function Gallery({ images, name }: { images: string[]; name: string }) {
   const go = (d: number) => setActive((i) => (i + d + images.length) % images.length);
 
   return (
-    <div className="flex flex-col-reverse gap-3 sm:flex-row">
+    <div className="mx-auto flex w-full max-w-md flex-col-reverse gap-3 lg:max-w-none">
       {many && (
-        <div className="flex gap-3 overflow-x-auto sm:flex-col">
+        <div className="flex gap-2.5 overflow-x-auto p-1">
           {images.map((src, i) => (
             <button
               key={src}
@@ -27,13 +27,13 @@ export function Gallery({ images, name }: { images: string[]; name: string }) {
                 i === active ? "ring-2 ring-ink" : "opacity-60 hover:opacity-100",
               )}
             >
-              <ProductImage src={src} alt="" sizes="80px" className="size-16 rounded-lg sm:size-20" />
+              <ProductImage src={src} alt="" sizes="80px" className="size-16 rounded-lg" />
             </button>
           ))}
         </div>
       )}
       <div
-        className="group relative aspect-square flex-1 overflow-hidden rounded-2xl bg-surface"
+        className="group relative aspect-square w-full shrink-0 overflow-hidden rounded-2xl border border-line bg-surface"
         onKeyDown={(e) => {
           if (!many) return;
           if (e.key === "ArrowRight") go(1);
@@ -49,7 +49,7 @@ export function Gallery({ images, name }: { images: string[]; name: string }) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: EASE }}
           >
-            <ProductImage src={images[active]} alt={name} sizes="(min-width: 1024px) 50vw, 100vw" priority className="size-full" />
+            <ProductImage src={images[active]} alt={name} sizes="(min-width: 1280px) 520px, (min-width: 1024px) 440px, 448px" priority className="size-full" />
           </motion.div>
         </AnimatePresence>
         {many && (
