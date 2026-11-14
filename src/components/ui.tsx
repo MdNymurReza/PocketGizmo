@@ -44,7 +44,7 @@ export function ButtonLink({
 const fieldBase =
   "w-full rounded-lg border border-line bg-white px-3 text-sm text-ink shadow-xs transition-colors placeholder:text-ink-soft/70 hover:border-ink/25 focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent/15 disabled:bg-surface disabled:opacity-70";
 
-export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className, ...props }: React.ComponentProps<"input">) {
   return <input className={cn(fieldBase, "h-10", className)} {...props} />;
 }
 

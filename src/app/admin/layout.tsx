@@ -29,8 +29,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   };
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[240px_1fr]">
-      <aside className="border-b border-line bg-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-b-0">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[240px_1fr] print:block">
+      <aside className="border-b border-line bg-white print:hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-b-0">
         <div className="flex items-center justify-between gap-2 p-4">
           <Link href="/admin" aria-label="Admin home" className="flex items-center gap-2">
             <Logo priority className="h-11" />
@@ -57,7 +57,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
       </aside>
-      <main className="min-w-0 bg-surface px-4 py-6 sm:px-8 lg:py-8">{children}</main>
+      <main className="min-w-0 bg-surface px-4 py-6 sm:px-8 lg:py-8 print:bg-white print:p-0">{children}</main>
     </div>
   );
 }

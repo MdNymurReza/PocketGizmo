@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
-import { BarChart3, Boxes, Package, Palette, PenTool, Printer, ReceiptText, Settings, Star, Tags, TicketPercent } from "lucide-react";
+import { BarChart3, Boxes, Package, Palette, PenTool, Printer, ReceiptText, Settings, Star, Store, Tags, TicketPercent } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const GROUPS = [
@@ -12,6 +12,7 @@ const GROUPS = [
     label: "Sales",
     links: [
       { href: "/admin/orders", label: "Orders", icon: ReceiptText },
+      { href: "/admin/stall", label: "Stall orders", icon: Store },
       { href: "/admin/custom-requests", label: "Custom requests", icon: PenTool },
       { href: "/admin/supplier", label: "Supplier", icon: Printer },
       { href: "/admin/reviews", label: "Reviews", icon: Star },

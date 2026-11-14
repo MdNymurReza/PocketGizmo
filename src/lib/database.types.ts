@@ -118,10 +118,28 @@ export type Database = {
         Update: { user_id?: string; product_id?: string; created_at?: string };
         Relationships: [];
       };
+      stall_products: {
+        Row: { id: string; name: string; price: number; image: string | null; is_active: boolean; created_at: string; updated_at: string };
+        Insert: { id?: string; name: string; price: number; image?: string | null; is_active?: boolean; created_at?: string; updated_at?: string };
+        Update: { id?: string; name?: string; price?: number; image?: string | null; is_active?: boolean; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      stall_orders: {
+        Row: { id: string; order_number: string; event_date: string; stall_location: string; customer_name: string; customer_phone: string; fulfilment: "pickup" | "delivery"; delivery_address: string | null; delivery_charge: number; subtotal: number; discount: number; total: number; paid_amount: number; payment_method: string | null; status: E["stall_order_status"]; due_date: string | null; note: string | null; delivered_at: string | null; created_by: string | null; created_at: string; updated_at: string; client_id: string | null };
+        Insert: { id?: string; order_number?: string; event_date?: string; stall_location?: string; customer_name?: string; customer_phone?: string; fulfilment?: "pickup" | "delivery"; delivery_address?: string | null; delivery_charge?: number; subtotal?: number; discount?: number; total?: number; paid_amount?: number; payment_method?: string | null; status?: E["stall_order_status"]; due_date?: string | null; note?: string | null; delivered_at?: string | null; created_by?: string | null; created_at?: string; updated_at?: string; client_id?: string | null };
+        Update: { id?: string; order_number?: string; event_date?: string; stall_location?: string; customer_name?: string; customer_phone?: string; fulfilment?: "pickup" | "delivery"; delivery_address?: string | null; delivery_charge?: number; subtotal?: number; discount?: number; total?: number; paid_amount?: number; payment_method?: string | null; status?: E["stall_order_status"]; due_date?: string | null; note?: string | null; delivered_at?: string | null; created_by?: string | null; created_at?: string; updated_at?: string; client_id?: string | null };
+        Relationships: [];
+      };
+      stall_order_items: {
+        Row: { id: string; order_id: string; name: string; details: string | null; quantity: number; unit_price: number; line_total: number };
+        Insert: { id?: string; order_id?: string; name?: string; details?: string | null; quantity?: number; unit_price?: number; line_total?: number };
+        Update: { id?: string; order_id?: string; name?: string; details?: string | null; quantity?: number; unit_price?: number; line_total?: number };
+        Relationships: [{ foreignKeyName: "stall_order_items_order_id_fkey"; columns: ["order_id"]; isOneToOne: false; referencedRelation: "stall_orders"; referencedColumns: ["id"] }];
+      };
       print_jobs: {
-        Row: { created_at: string; details: string | null; id: string; image: string | null; order_id: string | null; order_item_id: string | null; order_number: string | null; paid: boolean; paid_at: string | null; printed_at: string | null; quantity: number; status: E["print_job_status"]; supplier_note: string | null; title: string; unit_cost: number | null; updated_at: string; variant: string | null; payment_id: string | null };
-        Insert: { created_at?: string; details?: string | null; id?: string; image?: string | null; order_id?: string | null; order_item_id?: string | null; order_number?: string | null; paid?: boolean; paid_at?: string | null; printed_at?: string | null; quantity: number; status?: E["print_job_status"]; supplier_note?: string | null; title: string; unit_cost?: number | null; updated_at?: string; variant?: string | null; payment_id?: string | null };
-        Update: { created_at?: string; details?: string | null; id?: string; image?: string | null; order_id?: string | null; order_item_id?: string | null; order_number?: string | null; paid?: boolean; paid_at?: string | null; printed_at?: string | null; quantity?: number; status?: E["print_job_status"]; supplier_note?: string | null; title?: string; unit_cost?: number | null; updated_at?: string; variant?: string | null; payment_id?: string | null };
+        Row: { created_at: string; details: string | null; id: string; image: string | null; order_id: string | null; order_item_id: string | null; order_number: string | null; paid: boolean; paid_at: string | null; printed_at: string | null; quantity: number; status: E["print_job_status"]; supplier_note: string | null; title: string; unit_cost: number | null; updated_at: string; variant: string | null; payment_id: string | null; stall_order_id: string | null };
+        Insert: { created_at?: string; details?: string | null; id?: string; image?: string | null; order_id?: string | null; order_item_id?: string | null; order_number?: string | null; paid?: boolean; paid_at?: string | null; printed_at?: string | null; quantity: number; status?: E["print_job_status"]; supplier_note?: string | null; title: string; unit_cost?: number | null; updated_at?: string; variant?: string | null; payment_id?: string | null; stall_order_id?: string | null };
+        Update: { created_at?: string; details?: string | null; id?: string; image?: string | null; order_id?: string | null; order_item_id?: string | null; order_number?: string | null; paid?: boolean; paid_at?: string | null; printed_at?: string | null; quantity?: number; status?: E["print_job_status"]; supplier_note?: string | null; title?: string; unit_cost?: number | null; updated_at?: string; variant?: string | null; payment_id?: string | null; stall_order_id?: string | null };
         Relationships: [];
       };
       settings: {
@@ -141,6 +159,28 @@ export type Database = {
       admin_set_supplier: { Args: { p_email: string; p_on: boolean }; Returns: undefined };
       supplier_update_job: { Args: { p_job: string; p_status: E["print_job_status"] | null; p_unit_cost: number | null; p_note: string | null; p_clear_cost?: boolean }; Returns: undefined };
       admin_pay_jobs: { Args: { p_ids: string[] | null; p_expected_total: number | null; p_method?: string | null; p_reference?: string | null }; Returns: number };
+      stall_create_order: { Args: { p: Json; p_send_to_print?: boolean }; Returns: { id: string; order_number: string } };
+      stall_set_status: { Args: { p_order: string; p_status: E["stall_order_status"] }; Returns: undefined };
+      stall_record_payment: { Args: { p_order: string; p_amount: number; p_method?: string | null }; Returns: number };
+      stall_summary: {
+        Args: { p_from?: string | null; p_to?: string | null };
+        Returns: {
+          totals: { orders: number; revenue: number; collected: number; due: number; open: number; delivered: number; cancelled: number };
+          print_cost: number;
+          by_status: Partial<Record<E["stall_order_status"], number>>;
+          by_date: { date: string; location: string; orders: number; revenue: number; collected: number }[];
+          top_items: { name: string; quantity: number; revenue: number }[];
+        };
+      };
+      track_stall_order: {
+        Args: { p_order_number: string; p_phone: string };
+        Returns: {
+          order_number: string; status: E["stall_order_status"]; customer_name: string; fulfilment: "pickup" | "delivery";
+          subtotal: number; discount: number; delivery_charge: number; total: number; paid_amount: number;
+          due_date: string | null; created_at: string; delivered_at: string | null;
+          items: { name: string; details: string | null; quantity: number; line_total: number }[];
+        } | null;
+      };
       admin_unpay_job: { Args: { p_job: string }; Returns: undefined };
       admin_profit_summary: { Args: { p_from: string; p_to: string }; Returns: { sales: number; cost: number; profit: number; counted_orders: number; uncounted_orders: number } };
       print_job_summary: { Args: never; Returns: { to_print: number; printing: number; printed: number; earned: number; paid: number; due: number; payable_count: number; missing_cost: number; count_todo: number; count_done: number; count_unpaid: number; count_paid: number; count_all: number } };
@@ -159,6 +199,7 @@ export type Database = {
       validate_coupon: { Args: { p_code: string; p_subtotal: number }; Returns: { discount: number; error: string }[] };
     };
     Enums: {
+      stall_order_status: "new" | "printing" | "ready" | "delivered" | "cancelled";
       coupon_type: "percent" | "fixed";
       custom_request_status: "new" | "quoted" | "accepted" | "rejected" | "done";
       inventory_reason: "order" | "restock" | "adjust" | "cancel";

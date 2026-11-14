@@ -75,6 +75,10 @@ export function PrintJobCard({ job, mode }: { job: PrintJob; mode: "supplier" | 
                   <Link href={`/admin/orders/${job.order_id}`} className="underline-offset-4 hover:text-ink hover:underline">
                     Order {job.order_number}
                   </Link>
+                ) : isAdmin && job.stall_order_id ? (
+                  <Link href={`/admin/stall/${job.stall_order_id}`} className="underline-offset-4 hover:text-ink hover:underline">
+                    Stall order {job.order_number}
+                  </Link>
                 ) : (
                   `Order ${job.order_number}`
                 )

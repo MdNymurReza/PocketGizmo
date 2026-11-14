@@ -71,7 +71,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const { supabase, profile } = await getSessionProfile();
   const openCount = (status: OrderStatus) => supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", status);
 
-  const [{ data, error }, { data: prevData }, { count: newRequests }, { count: newReviews }, { data: recent }, { count: products }, { data: settings }, { data: profit }, ...pipelineCounts] =
+  const [{ data, error }, { data: prevData }, { count: newRequests }, { count: newReviews }, { data: recent }, { count: products }, { data: settings }, { data: profit }, { data: stall }, { count: stallOpen }, ...pipelineCounts] =
     await Promise.all([
       supabase.rpc("sales_summary", { p_from: from.toISOString(), p_to: to.toISOString() }),
       supabase.rpc("sales_summary", { p_from: prevFrom.toISOString(), p_to: prevTo.toISOString() }),
@@ -85,6 +85,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       supabase.from("products").select("id", { count: "exact", head: true }),
       supabase.from("settings").select("bkash_number, nagad_number, rocket_number, contact_phone, contact_email").eq("id", 1).single(),
       supabase.rpc("admin_profit_summary", { p_from: from.toISOString(), p_to: to.toISOString() }),
+      // Orders taken by hand at the stall, for the same days.
+      supabase.rpc("stall_summary", { p_from: fromYmd, p_to: toYmd }),
+      supabase.from("stall_orders").select("id", { count: "exact", head: true }).in("status", ["new", "printing", "ready"]),
       ...PIPELINE.map((p) => openCount(p.status)),
     ]);
   if (error || !data) return <p className="text-danger">Couldn&apos;t load the dashboard: {error?.message}</p>;
@@ -120,6 +123,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       text: `payment${s.pending_verification > 1 ? "s" : ""} to verify`,
     },
     toConfirm > 0 && { href: "/admin/orders?tab=pending", icon: Inbox, count: toConfirm, text: `new order${toConfirm > 1 ? "s" : ""} to confirm` },
+    !!stallOpen && { href: "/admin/stall?tab=open", icon: Inbox, count: stallOpen, text: `stall order${stallOpen > 1 ? "s" : ""} to hand over` },
     !!newRequests && { href: "/admin/custom-requests?tab=new", icon: PenTool, count: newRequests, text: `custom request${newRequests > 1 ? "s" : ""} to quote` },
     !!newReviews && { href: "/admin/reviews", icon: Star, count: newReviews, text: `review${newReviews > 1 ? "s" : ""} to approve` },
     s.low_stock.length > 0 && {
@@ -350,10 +354,49 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           />
         </div>
 
+        {stall && (
+          <Card>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="font-semibold">Website and stall together</h3>
+              <Link href="/admin/stall" className="text-sm font-medium text-ink-soft underline-offset-4 hover:text-ink hover:underline">
+                Open stall orders
+              </Link>
+            </div>
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 text-sm lg:grid-cols-4">
+              <div>
+                <dt className="text-ink-soft">Website revenue</dt>
+                <dd className="mt-0.5 text-lg font-semibold tabular-nums">{formatBDT(t.revenue)}</dd>
+                <dd className="text-xs text-ink-soft">{t.orders} order{Number(t.orders) === 1 ? "" : "s"}</dd>
+              </div>
+              <div>
+                <dt className="text-ink-soft">Stall revenue</dt>
+                <dd className="mt-0.5 text-lg font-semibold tabular-nums">{formatBDT(stall.totals.revenue)}</dd>
+                <dd className="text-xs text-ink-soft">{stall.totals.orders} order{Number(stall.totals.orders) === 1 ? "" : "s"}</dd>
+              </div>
+              <div>
+                <dt className="text-ink-soft">Total revenue</dt>
+                <dd className="mt-0.5 text-lg font-semibold text-accent tabular-nums">{formatBDT(Number(t.revenue) + Number(stall.totals.revenue))}</dd>
+                <dd className="text-xs text-ink-soft">{Number(t.orders) + Number(stall.totals.orders)} orders in all</dd>
+              </div>
+              <div>
+                <dt className="text-ink-soft">Stall money still to collect</dt>
+                <dd className={cn("mt-0.5 text-lg font-semibold tabular-nums", Number(stall.totals.due) > 0 && "text-danger")}>{formatBDT(stall.totals.due)}</dd>
+                <dd className="text-xs text-ink-soft">{formatBDT(stall.totals.collected)} collected</dd>
+              </div>
+            </dl>
+            {Number(stall.totals.orders) > 0 && (
+              <p className="mt-4 border-t border-line pt-3 text-sm text-ink-soft">
+                Stall after print cost: <span className="font-medium text-ink tabular-nums">{formatBDT(Number(stall.totals.revenue) - Number(stall.print_cost))}</span> (
+                {formatBDT(stall.print_cost)} print cost entered so far). The four numbers at the top and the chart below count website orders only.
+              </p>
+            )}
+          </Card>
+        )}
+
         {profit && (
           <Card className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
             <div>
-              <p className="text-sm text-ink-soft">Profit after print costs</p>
+              <p className="text-sm text-ink-soft">Website profit after print costs</p>
               <p className={cn("mt-1 text-2xl font-semibold tabular-nums", Number(profit.profit) < 0 && "text-danger")}>
                 {Number(profit.counted_orders) > 0 ? formatBDT(profit.profit) : "–"}
               </p>
