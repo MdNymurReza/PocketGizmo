@@ -332,7 +332,7 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
                   <span>Enter the number you sent from and the Transaction ID (TrxID) below.</span>
                 </li>
               </ol>
-              {settings.instructions && <p className="mt-4 text-xs text-ink-soft">{settings.instructions}</p>}
+              {settings.instructions && <p className="mt-4 rounded-lg bg-surface p-3 text-xs leading-relaxed whitespace-pre-line text-ink-soft">{settings.instructions}</p>}
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <Field label="Your sender number" error={errors.sender}>
                   <Input value={form.sender} onChange={set("sender")} type="tel" inputMode="tel" placeholder="01XXXXXXXXX" />

@@ -70,8 +70,8 @@ export function SettingsForm({ initial }: { initial: Values }) {
           <Field label="Rocket">
             <Input value={v.rocket_number} onChange={set("rocket_number")} placeholder="01XXXXXXXXX-X" className="font-mono" />
           </Field>
-          <Field label="Instructions shown at checkout" className="sm:col-span-3">
-            <Textarea rows={2} value={v.payment_instructions} onChange={set("payment_instructions")} />
+          <Field label="Instructions shown at checkout" hint="Shown under the payment steps for bKash, Nagad and Rocket. Line breaks are kept." className="sm:col-span-3">
+            <Textarea rows={7} value={v.payment_instructions} onChange={set("payment_instructions")} />
           </Field>
         </div>
       </Card>
