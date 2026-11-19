@@ -22,12 +22,12 @@ export function useCartSync() {
     const supabase = createClient();
     supabase
       .from("product_variants")
-      .select("id, price, stock, is_active, products!inner(is_active)")
+      .select("id, price, stock, is_active, products!inner(is_active, preorder_enabled)")
       .in("id", ids)
       .then(({ data, error }) => {
         if (error) return setSynced(true); // keep cart as-is; the server re-checks at checkout anyway
         const fresh = new Map(
-          (data ?? []).map((v) => [v.id, { price: Number(v.price), stock: v.stock, available: v.is_active && v.products.is_active }]),
+          (data ?? []).map((v) => [v.id, { price: Number(v.price), stock: v.stock, available: v.is_active && v.products.is_active, preorder: v.products.preorder_enabled }]),
         );
         useCart.getState().sync(fresh).forEach((m) => toast.info(m));
         setSynced(true);

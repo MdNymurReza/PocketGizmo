@@ -29,6 +29,10 @@ export type ProductFormValues = {
   compare_at_price: string;
   is_active: boolean;
   featured: boolean;
+  preorder_enabled: boolean;
+  preorder_note: string;
+  /** People waiting for a back-in-stock SMS. */
+  waiting?: number;
   images: string[];
   optionNames: string[];
   variants: Omit<VariantDraft, "key">[];
@@ -63,6 +67,8 @@ export function ProductForm({
   const [compareAt, setCompareAt] = useState(initial?.compare_at_price ?? "");
   const [isActive, setIsActive] = useState(initial?.is_active ?? true);
   const [featured, setFeatured] = useState(initial?.featured ?? false);
+  const [preorder, setPreorder] = useState(initial?.preorder_enabled ?? false);
+  const [preorderNote, setPreorderNote] = useState(initial?.preorder_note ?? "");
   const [images, setImages] = useState<string[]>(initial?.images ?? []);
   const [optionNames, setOptionNames] = useState<string[]>(initial?.optionNames ?? []);
   const [optionValues, setOptionValues] = useState<string[]>(initial?.optionNames.map(() => "") ?? []);
@@ -137,6 +143,8 @@ export function ProductForm({
       compare_at_price: compareAt,
       is_active: isActive,
       featured,
+      preorder_enabled: preorder,
+      preorder_note: preorderNote,
       images,
       optionNames: optionNames.map((n) => n.trim()),
       variants: variants.map((v) => ({
@@ -311,6 +319,17 @@ export function ProductForm({
         <Card className="grid gap-4">
           <Checkbox label="Live on store" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           <Checkbox label="Featured on home page" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+          <Checkbox label="Allow pre-orders when out of stock" checked={preorder} onChange={(e) => setPreorder(e.target.checked)} />
+          {preorder && (
+            <Field label="Pre-order note" hint="Shown to customers, e.g. Ships in 7–10 days">
+              <Input value={preorderNote} onChange={(e) => setPreorderNote(e.target.value)} maxLength={120} placeholder="Ships in 7–10 days" />
+            </Field>
+          )}
+          {!!initial?.waiting && (
+            <p className="rounded-lg bg-surface px-3 py-2 text-sm text-ink-soft">
+              <span className="font-medium text-ink">{initial.waiting}</span> {initial.waiting === 1 ? "person is" : "people are"} waiting for this to be back in stock. They get an SMS when you add stock.
+            </p>
+          )}
           <Field label="Category">
             <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
               <option value="">No category</option>

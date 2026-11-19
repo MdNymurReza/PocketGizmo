@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Turnstile, type TurnstileHandle } from "@/components/turnstile";
-import { Check, Copy, Loader2, Lock, X } from "lucide-react";
+import { Check, Copy, Gift, Loader2, Lock, Sparkles, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { EASE } from "@/components/motion";
-import { cartSubtotal, useCart } from "@/lib/cart-store";
+import { cartSubtotal, useCart, preorderCount } from "@/lib/cart-store";
 import { useCartSync } from "@/lib/use-cart-sync";
-import { checkCoupon, placeOrder } from "@/app/(shop)/checkout/actions";
+import { placeOrder } from "@/app/(shop)/checkout/actions";
+import { createClient } from "@/lib/supabase/client";
+import type { OrderQuote } from "@/lib/database.types";
 import { BD_DISTRICTS, type Zone } from "@/lib/bd";
 import { Button, ButtonLink, Field, Input, Select, Textarea } from "@/components/ui";
 import { ProductImage } from "./product-image";
@@ -29,6 +31,8 @@ type Props = {
     wallets: Record<Wallet, string | null>;
     instructions: string;
     codAdvance: "off" | "outside_dhaka" | "all";
+    giftEnabled: boolean;
+    giftFee: number;
   };
   signedIn: boolean;
   defaults: { name: string; phone: string; email: string };
@@ -47,7 +51,7 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
   const items = useCart((s) => s.items);
   const clearCart = useCart((s) => s.clear);
   const [pending, start] = useTransition();
-  const [checkingCoupon, startCoupon] = useTransition();
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
 
   const first = addresses[0];
   const [addressId, setAddressId] = useState<string>(first?.id ?? "new");
@@ -69,9 +73,14 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
   const captchaRef = useRef<TurnstileHandle>(null);
   const [saveAddress, setSaveAddress] = useState(signedIn && addresses.length === 0);
   const [couponInput, setCouponInput] = useState("");
-  const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const [coupon, setCoupon] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [placed, setPlaced] = useState(false);
+  const [gift, setGift] = useState({ wrap: false, message: "", hidePrices: true });
+  const [usePoints, setUsePoints] = useState(false);
+  const [quote, setQuote] = useState<OrderQuote | null>(null);
+  /** Which inputs the current quote was priced for, so the order can't be sent with an out-of-date total. */
+  const [quotedFor, setQuotedFor] = useState("");
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -87,27 +96,81 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
     }
   };
 
-  const subtotal = cartSubtotal(items);
-  const discount = coupon ? Math.min(coupon.discount, subtotal) : 0;
-  const shipping = useMemo(() => {
-    if (settings.freeOver != null && subtotal - discount >= settings.freeOver) return 0;
-    return zone === "inside_dhaka" ? settings.insideDhaka : settings.outsideDhaka;
-  }, [zone, subtotal, discount, settings]);
-  const total = subtotal - discount + shipping;
   const payload = () => items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity, details: i.details?.trim() || undefined }));
+  const itemsKey = items.map((i) => `${i.variantId}:${i.quantity}`).join(",");
 
-  const applyCoupon = () =>
-    startCoupon(async () => {
-      const res = await checkCoupon(couponInput, payload());
-      if (res.error) {
-        setCoupon(null);
-        setErrors((e) => ({ ...e, coupon: res.error! }));
-      } else {
-        setCoupon({ code: couponInput.trim().toUpperCase(), discount: res.discount! });
-        setErrors((e) => ({ ...e, coupon: "" }));
-        toast.success("Coupon applied");
-      }
-    });
+  /** Prices the order exactly as the database will charge it: deals, coupon, points, gift wrap and delivery. */
+  const fetchQuote = (code: string | null) =>
+    createClient()
+      .rpc("quote_order", {
+        p_items: items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity })),
+        p_coupon_code: code ?? "",
+        p_zone: zone,
+        // The database caps this at what the customer may use on this order.
+        p_points: usePoints ? 1_000_000 : 0,
+        p_gift: gift.wrap,
+      })
+      .then(({ data, error }) => (error ? null : data));
+
+  const quoteKey = [itemsKey, coupon ?? "", zone, usePoints, gift.wrap].join("|");
+
+  useEffect(() => {
+    if (!ready || !items.length) return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      fetchQuote(coupon).then((q) => {
+        if (cancelled) return;
+        if (!q) {
+          // Couldn't price it here: fall back to the cart estimate; the server prices the order anyway.
+          setQuote(null);
+          setQuotedFor(quoteKey);
+          return;
+        }
+        if (coupon && q.coupon_error) {
+          setCoupon(null);
+          setErrors((e) => ({ ...e, coupon: q.coupon_error! }));
+          return; // clearing the coupon fetches a fresh quote
+        }
+        setQuote(q);
+        setQuotedFor(quoteKey);
+      });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+    // fetchQuote reads the same values listed here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, quoteKey]);
+  const quoteFresh = quotedFor === quoteKey;
+
+  // Shown until the first quote arrives; the server price is what's charged.
+  const localSubtotal = cartSubtotal(items);
+  const localShipping = useMemo(() => {
+    if (settings.freeOver != null && localSubtotal >= settings.freeOver) return 0;
+    return zone === "inside_dhaka" ? settings.insideDhaka : settings.outsideDhaka;
+  }, [zone, localSubtotal, settings]);
+  const subtotal = quote ? Number(quote.subtotal) : localSubtotal;
+  const dealDiscount = quote ? Number(quote.deal_discount) : 0;
+  const discount = quote && coupon ? Number(quote.coupon_discount) : 0;
+  const pointsUsed = quote ? quote.points_used : 0;
+  const giftFee = gift.wrap && settings.giftEnabled ? (quote ? Number(quote.gift_fee) : settings.giftFee) : 0;
+  const shipping = quote ? Number(quote.shipping) : localShipping;
+  const total = quote ? Number(quote.total) : localSubtotal + localShipping + giftFee;
+
+  const applyCoupon = async () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) return;
+    setCheckingCoupon(true);
+    const q = await fetchQuote(code);
+    setCheckingCoupon(false);
+    if (!q) return void setErrors((e) => ({ ...e, coupon: "Couldn't check that coupon, please try again" }));
+    if (q.coupon_error) return void setErrors((e) => ({ ...e, coupon: q.coupon_error! }));
+    setQuote(q);
+    setCoupon(code);
+    setErrors((e) => ({ ...e, coupon: "" }));
+    toast.success("Coupon applied");
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +181,11 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
         zone,
         payment,
         advance: needAdvance ? advanceWallet : undefined,
-        coupon: coupon?.code ?? "",
+        coupon: coupon ?? "",
+        points: pointsUsed,
+        giftWrap: gift.wrap && settings.giftEnabled,
+        giftMessage: gift.wrap ? gift.message : "",
+        giftHidePrices: gift.wrap && gift.hidePrices,
         saveAddress: signedIn && addressId === "new" && saveAddress,
         captcha,
       });
@@ -247,6 +314,32 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
           )}
         </Section>
 
+        {settings.giftEnabled && (
+          <Section title="Is it a gift?">
+            <label className={cn("flex cursor-pointer gap-3 rounded-lg border bg-white p-4 transition-colors", gift.wrap ? "border-ink ring-1 ring-ink" : "border-line hover:border-ink/30")}>
+              <input type="checkbox" checked={gift.wrap} onChange={(e) => setGift((g) => ({ ...g, wrap: e.target.checked }))} className="mt-0.5 size-4 shrink-0 accent-ink" />
+              <span className="min-w-0 flex-1 text-sm">
+                <span className="flex items-center justify-between gap-2 font-medium">
+                  <span className="flex items-center gap-2"><Gift className="size-4 text-accent" /> Gift wrap it</span>
+                  <span className="tabular-nums">{settings.giftFee > 0 ? `+${formatBDT(settings.giftFee)}` : "Free"}</span>
+                </span>
+                <span className="mt-0.5 block text-ink-soft">Wrapped with a card and your message.</span>
+              </span>
+            </label>
+            {gift.wrap && (
+              <div className="mt-4 grid gap-3">
+                <Field label="Gift message (optional)" hint={`${gift.message.length}/200`}>
+                  <Textarea rows={2} maxLength={200} value={gift.message} onChange={(e) => setGift((g) => ({ ...g, message: e.target.value }))} placeholder="Happy birthday! Love, Nusrat" />
+                </Field>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" className="size-4 accent-accent" checked={gift.hidePrices} onChange={(e) => setGift((g) => ({ ...g, hidePrices: e.target.checked }))} />
+                  Don&apos;t show prices on the slip inside the parcel
+                </label>
+              </div>
+            )}
+          </Section>
+        )}
+
         {/* Payment */}
         <Section title="Payment">
           <div className="grid gap-2 sm:grid-cols-2">
@@ -365,6 +458,7 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
                 <p className="truncate font-medium">{i.name}</p>
                 {variantLabel(i.options) && <p className="text-ink-soft">{variantLabel(i.options)}</p>}
                 {i.details?.trim() && <p className="mt-0.5 break-words text-ink-soft">Details: {i.details.trim()}</p>}
+                {preorderCount(i) > 0 && <p className="mt-0.5 text-xs text-info">Pre-order: {preorderCount(i)} printed after you order</p>}
               </div>
               <span className="text-sm tabular-nums">{formatBDT(i.price * i.quantity)}</span>
             </li>
@@ -375,7 +469,7 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
           {coupon ? (
             <div className="flex items-center justify-between rounded-lg border border-success/25 bg-success/5 px-3 py-2 text-sm">
               <span className="flex items-center gap-2 font-medium text-success">
-                <Check className="size-4" /> {coupon.code}
+                <Check className="size-4" /> {coupon}
               </span>
               <button type="button" onClick={() => setCoupon(null)} className="text-ink-soft hover:text-ink" aria-label="Remove coupon">
                 <X className="size-4" />
@@ -409,9 +503,35 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
           )}
         </div>
 
+        {signedIn && quote && quote.points_balance > 0 && (
+          <div className="mt-5 rounded-lg border border-line bg-white p-3 text-sm">
+            <label className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 font-medium">
+                <Sparkles className="size-4 text-accent" /> Use my points
+              </span>
+              <input
+                type="checkbox"
+                className="size-4 accent-accent"
+                checked={usePoints}
+                disabled={quote.points_max === 0}
+                onChange={(e) => setUsePoints(e.target.checked)}
+              />
+            </label>
+            <p className="mt-1 text-ink-soft">
+              You have {quote.points_balance} points (1 point = ৳1).{" "}
+              {quote.points_max > 0 ? `Use up to ${quote.points_max} on this order.` : "Add more items to use them."}
+            </p>
+          </div>
+        )}
+
         <dl className="mt-5 grid gap-2.5 border-t border-line pt-5 text-sm">
           <Row label="Subtotal" value={formatBDT(subtotal)} />
-          {discount > 0 && <Row label="Discount" value={`−${formatBDT(discount)}`} className="text-success" />}
+          {dealDiscount > 0 && (
+            <Row label={quote?.deal_name ? `Deal: ${quote.deal_name}` : "Deal"} value={`−${formatBDT(dealDiscount)}`} className="text-success" icon={<Tag className="size-3.5" />} />
+          )}
+          {discount > 0 && <Row label={`Coupon ${coupon ?? ""}`} value={`−${formatBDT(discount)}`} className="text-success" />}
+          {pointsUsed > 0 && <Row label={`Points (${pointsUsed})`} value={`−${formatBDT(pointsUsed)}`} className="text-success" />}
+          {giftFee > 0 && <Row label="Gift wrap" value={formatBDT(giftFee)} />}
           <Row label={`Delivery (${zone === "inside_dhaka" ? "Inside Dhaka" : "Outside Dhaka"})`} value={shipping === 0 ? "Free" : formatBDT(shipping)} />
           <div className="mt-2 flex justify-between border-t border-line pt-4 text-base">
             <dt className="font-medium">Total</dt>
@@ -423,11 +543,20 @@ export function CheckoutForm({ settings, signedIn, defaults, addresses }: Props)
               <Row label="Pay on delivery" value={formatBDT(total - shipping)} />
             </>
           )}
+          {quote && quote.earn_points > 0 && (
+            <p className="text-xs text-ink-soft">
+              {signedIn ? `You'll earn ${quote.earn_points} points when this order is delivered.` : (
+                <>
+                  <Link href="/login?next=/checkout" className="underline underline-offset-2">Log in</Link> to earn {quote.earn_points} points on this order.
+                </>
+              )}
+            </p>
+          )}
         </dl>
 
         <Turnstile ref={captchaRef} onToken={setCaptcha} className="mt-6" />
 
-        <Button type="submit" size="lg" className="mt-6 w-full" disabled={pending || !synced}>
+        <Button type="submit" size="lg" className="mt-6 w-full" disabled={pending || !synced || !quoteFresh}>
           {pending ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />}
           {pending ? "Placing order…" : wallet ? "Confirm payment & place order" : "Place order"}
         </Button>
@@ -491,10 +620,10 @@ function CopyChip({ value }: { value: string }) {
   );
 }
 
-function Row({ label, value, className }: { label: string; value: string; className?: string }) {
+function Row({ label, value, className, icon }: { label: string; value: string; className?: string; icon?: React.ReactNode }) {
   return (
-    <div className={cn("flex justify-between", className)}>
-      <dt className={className ? undefined : "text-ink-soft"}>{label}</dt>
+    <div className={cn("flex justify-between gap-3", className)}>
+      <dt className={cn("flex items-center gap-1.5", !className && "text-ink-soft")}>{icon}{label}</dt>
       <dd className="tabular-nums">{value}</dd>
     </div>
   );

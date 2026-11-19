@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
-import { BarChart3, Boxes, Package, Palette, PenTool, Printer, ReceiptText, Settings, Star, Store, Tags, TicketPercent } from "lucide-react";
+import { BadgePercent, BarChart3, Boxes, CalendarHeart, FileText, Package, Palette, PenTool, Printer, ReceiptText, Settings, Star, Store, Tags, TicketPercent } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const GROUPS = [
-  { label: null, links: [{ href: "/admin", label: "Dashboard", icon: BarChart3, exact: true }] },
+  { label: null, links: [
+      { href: "/admin", label: "Dashboard", icon: BarChart3, exact: true },
+      { href: "/admin/reports", label: "Monthly report", icon: FileText },
+    ] },
   {
     label: "Sales",
     links: [
@@ -31,6 +34,8 @@ const GROUPS = [
     label: "Store",
     links: [
       { href: "/admin/coupons", label: "Coupons", icon: TicketPercent },
+      { href: "/admin/deals", label: "Deals", icon: BadgePercent },
+      { href: "/admin/collections", label: "Collections", icon: CalendarHeart },
       { href: "/admin/settings", label: "Settings", icon: Settings },
     ],
   },

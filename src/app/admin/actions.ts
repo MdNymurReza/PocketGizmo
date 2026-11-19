@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { sendBackInStockAlerts } from "@/lib/sms";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/supabase/server";
 import { slugify } from "@/lib/utils";
@@ -79,6 +81,8 @@ const productSchema = z.object({
   compare_at_price: z.union([money, z.literal(""), z.null()]).optional(),
   is_active: z.boolean(),
   featured: z.boolean(),
+  preorder_enabled: z.boolean().default(false),
+  preorder_note: z.string().trim().max(120).default(""),
   images: z.array(z.url()).max(10),
   optionNames: z.array(z.string().trim().min(1)).max(3),
   variants: z.array(variantSchema).min(1, "Add at least one variant"),
@@ -115,6 +119,8 @@ export async function saveProduct(input: ProductInput): Promise<ActionResult> {
       compare_at_price: p.compare_at_price === "" || p.compare_at_price == null ? null : Number(p.compare_at_price),
       is_active: p.is_active,
       featured: p.featured,
+      preorder_enabled: p.preorder_enabled,
+      preorder_note: p.preorder_note || null,
       images: p.images,
     };
 
@@ -140,6 +146,7 @@ export async function saveProduct(input: ProductInput): Promise<ActionResult> {
       if (toDeactivate.length) await supabase.from("product_variants").update({ is_active: false }).in("id", toDeactivate);
     }
 
+    const restocked: string[] = [];
     for (const [i, v] of p.variants.entries()) {
       const options = Object.fromEntries(p.optionNames.map((n) => [n, v.options[n].trim()]));
       const fields = {
@@ -177,8 +184,10 @@ export async function saveProduct(input: ProductInput): Promise<ActionResult> {
           p_note: "Edited in product form",
         });
         if (e) return { error: e.message, id: productId };
+        if (currentStock <= 0 && v.stock > 0) restocked.push(variantId);
       }
     }
+    if (restocked.length) after(() => sendBackInStockAlerts(supabase, restocked));
 
     revalidatePath("/admin/products");
     revalidatePath("/admin/inventory");
@@ -231,6 +240,7 @@ export async function adjustStock(input: z.input<typeof adjustSchema>): Promise<
       p_note: note,
     });
     if (error) return { error: error.message.includes("stock_check") ? "Stock cannot go below zero" : error.message };
+    if (delta > 0 && data > 0 && data - delta <= 0) after(() => sendBackInStockAlerts(supabase, [variantId]));
     revalidatePath("/admin/inventory");
     revalidatePath("/admin/products");
     return { stock: data };

@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Download, Gift, MessageSquareText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge, Card } from "@/components/ui";
 import { ProductImage } from "@/components/shop/product-image";
 import { OrderActions } from "@/components/admin/order-actions";
 import { SendToPrint } from "@/components/admin/send-to-print";
+import { CourierPanel } from "@/components/admin/courier-panel";
+import { amountDue } from "@/lib/sms";
+import { steadfastConfigured, steadfastTrackingUrl } from "@/lib/steadfast";
 import { CopyButton } from "@/components/copy-button";
 import { AdvancePanel, CustomerRisk } from "@/components/admin/customer-risk";
 import { ORDER_STATUS_COLOR, PAYMENT_STATUS_COLOR, PAYMENT_STATUS_LABEL } from "@/lib/orders";
@@ -24,16 +27,18 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
     .eq("id", id)
     .maybeSingle();
   if (!o) notFound();
-  const [{ data: statsRows }, { data: jobRows }] = await Promise.all([
+  const [{ data: statsRows }, { data: jobRows }, { data: smsRows }] = await Promise.all([
     supabase.rpc("admin_phone_stats", { p_phones: [o.customer_phone] }),
     supabase.from("print_jobs").select("unit_cost, quantity, status").eq("order_id", o.id),
+    supabase.from("sms_log").select("id, event, ok, error, created_at").eq("order_id", o.id).order("created_at"),
   ]);
+  const receipt = `/api/receipt/${encodeURIComponent(o.order_number)}?t=${o.tracking_token}`;
   const printJobs = jobRows?.length ?? 0;
   // Profit: what the items sold for, minus what the supplier charges to print them. Delivery is not counted.
   const liveJobs = (jobRows ?? []).filter((j) => j.status !== "cancelled");
   const printCost = liveJobs.reduce((n, j) => n + Number(j.unit_cost ?? 0) * j.quantity, 0);
   const jobsWithoutCost = liveJobs.filter((j) => j.unit_cost == null).length;
-  const itemSales = Number(o.subtotal) - Number(o.discount);
+  const itemSales = Number(o.subtotal) - Number(o.discount) - Number(o.deal_discount) - Number(o.points_discount) + Number(o.gift_fee);
   const stats = statsRows?.[0] ?? { total: 1, delivered: 0, cancelled: 0, blocked: false, block_reason: null };
   const history = [...o.order_status_history].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
@@ -67,6 +72,9 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                       <p className="font-medium">{it.product_name}</p>
                     )}
                     <p className="text-ink-soft">{variantLabel(it.variant_options as Record<string, string>)}</p>
+                    {it.preorder_qty > 0 && (
+                      <p className="mt-1 text-xs font-medium text-info">Pre-order: {it.preorder_qty} of {it.quantity} not in stock yet, print them</p>
+                    )}
                     {it.details && (
                       <p className="mt-1.5 inline-block rounded-md bg-warning/10 px-2 py-1 font-medium break-words text-ink">
                         Customer details: {it.details}
@@ -80,14 +88,37 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             </ul>
             <dl className="grid gap-2 border-t border-line px-5 py-4 text-sm">
               <Row label="Subtotal" value={formatBDT(o.subtotal)} />
+              {Number(o.deal_discount) > 0 && <Row label={`Deal${o.deal_name ? ` (${o.deal_name})` : ""}`} value={`−${formatBDT(o.deal_discount)}`} />}
               {Number(o.discount) > 0 && <Row label={`Discount${o.coupon_code ? ` (${o.coupon_code})` : ""}`} value={`−${formatBDT(o.discount)}`} />}
+              {Number(o.points_discount) > 0 && <Row label={`Points (${o.points_used})`} value={`−${formatBDT(o.points_discount)}`} />}
+              {Number(o.gift_fee) > 0 && <Row label="Gift wrap" value={formatBDT(o.gift_fee)} />}
               <Row label={`Delivery (${ZONE_LABEL[o.ship_zone]})`} value={formatBDT(o.shipping_fee)} />
               <div className="flex justify-between border-t border-line pt-2 text-base font-semibold">
                 <dt>Total</dt>
                 <dd className="tabular-nums">{formatBDT(o.total)}</dd>
               </div>
             </dl>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line px-5 py-3 text-sm">
+              <a href={receipt} className="inline-flex items-center gap-1.5 font-medium text-accent hover:underline">
+                <Download className="size-4" /> Receipt PDF
+              </a>
+              <a href={`${receipt}&gift=1`} className="inline-flex items-center gap-1.5 text-ink-soft hover:text-ink">
+                <Gift className="size-4" /> Packing slip without prices
+              </a>
+            </div>
           </Card>
+
+          {o.gift_wrap && (
+            <Card className="border-accent/30 bg-accent/5 text-sm">
+              <h2 className="flex items-center gap-2 font-semibold"><Gift className="size-4 text-accent" /> Gift wrap this order</h2>
+              {o.gift_message ? (
+                <p className="mt-2 rounded-md bg-white p-3 break-words">&ldquo;{o.gift_message}&rdquo;</p>
+              ) : (
+                <p className="mt-2 text-ink-soft">No message for the card.</p>
+              )}
+              {o.gift_hide_prices && <p className="mt-2 text-xs text-ink-soft">The customer asked for no prices in the parcel: put in the packing slip without prices.</p>}
+            </Card>
+          )}
 
           {o.advance_status !== "none" && (
             <AdvancePanel
@@ -115,6 +146,14 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               tracking_code: o.tracking_code ?? "",
             }}
           />
+
+          {o.status !== "cancelled" && o.status !== "delivered" && (
+            <CourierPanel
+              order={{ id: o.id, status: o.status, courier: o.courier, tracking_code: o.tracking_code, consignment_id: o.consignment_id, due: amountDue(o) }}
+              ready={steadfastConfigured()}
+              trackingUrl={o.courier === "Steadfast" && o.tracking_code ? steadfastTrackingUrl(o.tracking_code) : null}
+            />
+          )}
         </div>
 
         <div className="grid h-fit gap-6">
@@ -188,6 +227,20 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                   <p className="mt-3 text-xs text-ink-soft">The delivery charge is not counted. It goes to the courier.</p>
                 </>
               )}
+            </Card>
+          )}
+
+          {(smsRows?.length ?? 0) > 0 && (
+            <Card className="text-sm">
+              <h2 className="flex items-center gap-2 font-semibold"><MessageSquareText className="size-4" /> SMS sent</h2>
+              <ul className="mt-3 grid gap-1.5">
+                {smsRows!.map((m) => (
+                  <li key={m.id} className="flex justify-between gap-3">
+                    <span className="capitalize">{m.event.replace(/_/g, " ")}</span>
+                    <span className={m.ok ? "text-success" : "text-danger"}>{m.ok ? formatDate(m.created_at) : (m.error ?? "Failed")}</span>
+                  </li>
+                ))}
+              </ul>
             </Card>
           )}
 

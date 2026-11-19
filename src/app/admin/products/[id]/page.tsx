@@ -10,9 +10,14 @@ export const metadata: Metadata = { title: "Edit product" };
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const [{ data: product }, { data: categories }] = await Promise.all([
+  const [{ data: product }, { data: categories }, { count: waiting }] = await Promise.all([
     supabase.from("products").select("*, product_variants(*)").eq("id", id).maybeSingle(),
     supabase.from("categories").select("id, name").order("sort_order"),
+    supabase
+      .from("stock_alerts")
+      .select("id, product_variants!inner(product_id)", { count: "exact", head: true })
+      .eq("product_variants.product_id", id)
+      .is("notified_at", null),
   ]);
   if (!product) notFound();
 
@@ -29,6 +34,9 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     compare_at_price: product.compare_at_price?.toString() ?? "",
     is_active: product.is_active,
     featured: product.featured,
+    preorder_enabled: product.preorder_enabled,
+    preorder_note: product.preorder_note ?? "",
+    waiting: waiting ?? 0,
     images: product.images,
     optionNames,
     variants: variants.map((v) => ({

@@ -1,8 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/supabase/server";
+import { amountDue, smsOrderEvent, type SmsEvent } from "@/lib/sms";
+import { consignmentStatus, createConsignment, steadfastConfigured, STEADFAST_STATUS_LABEL } from "@/lib/steadfast";
+
+type Admin = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
+
+const SMS_FOR_STATUS: Partial<Record<string, SmsEvent>> = { confirmed: "confirmed", shipped: "shipped", delivered: "delivered", cancelled: "cancelled" };
+
+/** Texts the customer after the response is sent, so buttons stay fast. */
+function textCustomer(supabase: Admin, id: string, status: string) {
+  const event = SMS_FOR_STATUS[status];
+  if (event) after(() => smsOrderEvent(supabase, id, event));
+}
 
 type Result = { error?: string };
 
@@ -31,6 +44,7 @@ export async function setOrderStatus(input: z.input<typeof statusSchema>): Promi
     if (status === "delivered") {
       await supabase.from("orders").update({ payment_status: "paid" }).eq("id", id).eq("payment_method", "cod");
     }
+    textCustomer(supabase, id, status);
     refresh(id);
     return {};
   } catch (e) {
@@ -47,7 +61,8 @@ export async function setPaymentStatus(id: string, verdict: "paid" | "rejected" 
     if (error) return { error: error.message };
     // A verified payment confirms a pending order automatically.
     if (verdict === "paid" && order.status === "pending") {
-      await supabase.rpc("admin_set_order_status", { p_order: id, p_status: "confirmed", p_note: "Payment verified" });
+      const { error: e } = await supabase.rpc("admin_set_order_status", { p_order: id, p_status: "confirmed", p_note: "Payment verified" });
+      if (!e) textCustomer(supabase, id, "confirmed");
     }
     refresh(id);
     return {};
@@ -76,6 +91,7 @@ export async function saveShipping(input: z.input<typeof shippingSchema>): Promi
       const note = courier ? `Handed to ${courier}${tracking_code ? ` (${tracking_code})` : ""}` : "";
       const { error: e } = await supabase.rpc("admin_set_order_status", { p_order: id, p_status: "shipped", p_note: note });
       if (e) return { error: e.message };
+      textCustomer(supabase, id, "shipped");
     }
     refresh(id);
     return {};
@@ -94,7 +110,8 @@ export async function setAdvanceStatus(id: string, verdict: "verified" | "reject
     if (error) return { error: error.message };
     // A received delivery charge confirms a pending COD order automatically.
     if (verdict === "verified" && order.status === "pending") {
-      await supabase.rpc("admin_set_order_status", { p_order: id, p_status: "confirmed", p_note: "Delivery charge received" });
+      const { error: e } = await supabase.rpc("admin_set_order_status", { p_order: id, p_status: "confirmed", p_note: "Delivery charge received" });
+      if (!e) textCustomer(supabase, id, "confirmed");
     }
     refresh(id);
     return {};
@@ -123,6 +140,80 @@ export async function setPhoneBlocked(input: z.input<typeof blockSchema>, blocke
     if (orderId) refresh(orderId);
     revalidatePath("/admin/orders");
     return {};
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Books the parcel with Steadfast, saves the tracking code and marks the order as shipped. */
+export async function bookSteadfast(id: string): Promise<Result & { tracking?: string; cod?: number }> {
+  try {
+    const { supabase } = await requireAdmin();
+    if (!z.uuid().safeParse(id).success) return { error: "Invalid order" };
+    if (!steadfastConfigured()) return { error: "Steadfast is not set up: add STEADFAST_API_KEY and STEADFAST_SECRET_KEY" };
+    const { data: o, error } = await supabase
+      .from("orders")
+      .select("id, order_number, status, customer_name, customer_phone, ship_line, ship_area, ship_district, note, total, payment_status, advance_amount, advance_status, consignment_id, gift_wrap, order_items(product_name, quantity)")
+      .eq("id", id)
+      .single();
+    if (error) return { error: error.message };
+    if (o.consignment_id) return { error: "This order is already booked with Steadfast" };
+    if (!["confirmed", "printing", "shipped"].includes(o.status)) return { error: "Confirm the order before booking a courier" };
+
+    const cod = amountDue(o);
+    const items = o.order_items.map((i) => `${i.product_name} x${i.quantity}`).join(", ");
+    const consignment = await createConsignment({
+      invoice: o.order_number,
+      recipient_name: o.customer_name.slice(0, 100),
+      recipient_phone: o.customer_phone,
+      recipient_address: `${o.ship_line}, ${o.ship_area}, ${o.ship_district}`.slice(0, 250),
+      cod_amount: cod,
+      item_description: items.slice(0, 200),
+      note: [o.gift_wrap ? "Gift wrapped" : "", o.note ?? ""].filter(Boolean).join(". ").slice(0, 200) || undefined,
+    });
+
+    const { error: upErr } = await supabase
+      .from("orders")
+      .update({ courier: "Steadfast", tracking_code: consignment.tracking_code, consignment_id: String(consignment.consignment_id) })
+      .eq("id", id);
+    if (upErr) return { error: `Booked (tracking ${consignment.tracking_code}) but couldn't save it: ${upErr.message}` };
+    if (o.status !== "shipped") {
+      const { error: e } = await supabase.rpc("admin_set_order_status", {
+        p_order: id,
+        p_status: "shipped",
+        p_note: `Handed to Steadfast (${consignment.tracking_code})`,
+      });
+      if (!e) textCustomer(supabase, id, "shipped");
+    }
+    refresh(id);
+    return { tracking: consignment.tracking_code, cod };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Asks Steadfast where the parcel is; marks the order delivered when Steadfast says so. */
+export async function refreshCourierStatus(id: string): Promise<Result & { label?: string; delivered?: boolean }> {
+  try {
+    const { supabase } = await requireAdmin();
+    if (!z.uuid().safeParse(id).success) return { error: "Invalid order" };
+    if (!steadfastConfigured()) return { error: "Steadfast is not set up" };
+    const { data: o, error } = await supabase.from("orders").select("status, consignment_id").eq("id", id).single();
+    if (error) return { error: error.message };
+    if (!o.consignment_id) return { error: "This order isn't booked with Steadfast" };
+    const status = await consignmentStatus(o.consignment_id);
+    const label = STEADFAST_STATUS_LABEL[status] ?? status;
+    // A partial delivery means some items came back and less cash was collected: the admin settles that by hand.
+    if (status === "partial_delivered") return { label: `${label}. Check what was returned, then update the order yourself.` };
+    if (status === "delivered" && o.status === "shipped") {
+      const { error: e } = await supabase.rpc("admin_set_order_status", { p_order: id, p_status: "delivered", p_note: `Steadfast: ${label}` });
+      if (e) return { error: e.message };
+      await supabase.from("orders").update({ payment_status: "paid" }).eq("id", id).eq("payment_method", "cod");
+      textCustomer(supabase, id, "delivered");
+      refresh(id);
+      return { label, delivered: true };
+    }
+    return { label };
   } catch (e) {
     return fail(e);
   }

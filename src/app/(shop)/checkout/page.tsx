@@ -12,7 +12,7 @@ export default async function CheckoutPage() {
   const [{ data: settings }, { data: addresses }] = await Promise.all([
     supabase
       .from("settings")
-      .select("shipping_inside_dhaka, shipping_outside_dhaka, free_shipping_over, bkash_number, nagad_number, rocket_number, payment_instructions, cod_advance")
+      .select("shipping_inside_dhaka, shipping_outside_dhaka, free_shipping_over, bkash_number, nagad_number, rocket_number, payment_instructions, cod_advance, gift_enabled, gift_wrap_fee")
       .eq("id", 1)
       .single(),
     user
@@ -35,6 +35,8 @@ export default async function CheckoutPage() {
           },
           instructions: settings?.payment_instructions ?? "",
           codAdvance: settings?.cod_advance ?? "off",
+          giftEnabled: settings?.gift_enabled ?? false,
+          giftFee: Number(settings?.gift_wrap_fee ?? 0),
         }}
         signedIn={Boolean(user)}
         defaults={{ name: profile?.full_name ?? "", phone: profile?.phone ?? "", email: user?.email ?? "" }}

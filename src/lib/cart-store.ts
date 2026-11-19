@@ -15,9 +15,19 @@ export type CartItem = {
   quantity: number;
   /** Optional note for this item, e.g. the name and number for a jersey. */
   details?: string;
+  /** The product can be ordered past its stock. */
+  preorder?: boolean;
+  /** For pre-order items: how many are ready now (`stock` holds the higher order limit). */
+  ready?: number;
 };
 
+/** How many of this line are printed after the order, because they aren't in stock. */
+export const preorderCount = (i: Pick<CartItem, "preorder" | "ready" | "quantity">) =>
+  i.preorder ? Math.max(0, i.quantity - Math.max(0, i.ready ?? 0)) : 0;
+
 export const DETAILS_MAX = 300;
+/** How many of a pre-order item one order can hold. */
+export const PREORDER_MAX = 20;
 
 type CartState = {
   items: CartItem[];
@@ -27,7 +37,7 @@ type CartState = {
   remove: (variantId: string) => void;
   clear: () => void;
   /** Apply fresh price/stock from the server. Returns names of items that changed or were removed. */
-  sync: (fresh: Map<string, { price: number; stock: number; available: boolean }>) => string[];
+  sync: (fresh: Map<string, { price: number; stock: number; available: boolean; preorder: boolean }>) => string[];
 };
 
 export const useCart = create<CartState>()(
@@ -63,14 +73,15 @@ export const useCart = create<CartState>()(
         set((s) => ({
           items: s.items.flatMap((i) => {
             const f = fresh.get(i.variantId);
-            if (!f || !f.available || f.stock <= 0) {
+            const stock = f?.preorder ? Math.max(f.stock, PREORDER_MAX) : (f?.stock ?? 0);
+            if (!f || !f.available || stock <= 0) {
               changed.push(`${i.name} is no longer available`);
               return [];
             }
-            const quantity = Math.min(i.quantity, f.stock);
-            if (quantity < i.quantity) changed.push(`Only ${f.stock} of ${i.name} left, so we updated your cart`);
+            const quantity = Math.min(i.quantity, stock);
+            if (quantity < i.quantity) changed.push(`Only ${stock} of ${i.name} left, so we updated your cart`);
             if (f.price !== i.price) changed.push(`The price of ${i.name} changed`);
-            return [{ ...i, price: f.price, stock: f.stock, quantity }];
+            return [{ ...i, price: f.price, stock, preorder: f.preorder || undefined, ready: f.preorder ? f.stock : undefined, quantity }];
           }),
         }));
         return changed;

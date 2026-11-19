@@ -3,9 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Banknote, Check, Minus, Plus, ShoppingBag, Truck, Zap } from "lucide-react";
+import { Banknote, Bell, Check, Clock, Gift, Loader2, Minus, Plus, ShoppingBag, Tag, Truck, Zap } from "lucide-react";
 import { toast } from "sonner";
-import { DETAILS_MAX, useCart } from "@/lib/cart-store";
+import { DETAILS_MAX, PREORDER_MAX, useCart } from "@/lib/cart-store";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui";
 import { FilamentSwatch } from "@/components/filament-swatch";
 import { cn, formatBDT } from "@/lib/utils";
@@ -18,6 +19,9 @@ export function PurchasePanel({
   compareAt,
   shipping,
   colorHex = {},
+  preorder = null,
+  deals = [],
+  pointsPer = null,
 }: {
   product: { id: string; slug: string; name: string; image: string | null };
   variants: Variant[];
@@ -25,6 +29,11 @@ export function PurchasePanel({
   shipping: { insideDhaka: number; outsideDhaka: number; freeOver: number | null };
   /** Lower-cased color name to hex, from the filament list. Used to show color dots. */
   colorHex?: Record<string, string | null>;
+  /** Set when the product can be ordered while out of stock. */
+  preorder?: { note: string | null } | null;
+  deals?: { id: string; name: string; rule: string }[];
+  /** Taka spent per loyalty point, when points are on. */
+  pointsPer?: number | null;
 }) {
   const router = useRouter();
   const add = useCart((s) => s.add);
@@ -44,7 +53,10 @@ export function PurchasePanel({
   const match = (sel: Record<string, string>) => variants.find((v) => optionNames.every((n) => v.options[n] === sel[n]));
   const variant = match(selected);
   const alreadyInCart = inCart.find((i) => i.variantId === variant?.id)?.quantity ?? 0;
-  const maxQty = Math.max(0, (variant?.stock ?? 0) - alreadyInCart);
+  // Pre-order products can be ordered past their stock; the rest is printed after the order.
+  const limit = preorder ? Math.max(variant?.stock ?? 0, PREORDER_MAX) : (variant?.stock ?? 0);
+  const maxQty = Math.max(0, limit - alreadyInCart);
+  const isPreorder = Boolean(preorder && variant && variant.stock < qty + alreadyInCart);
 
   const pick = (name: string, value: string) => {
     const next = { ...selected, [name]: value };
@@ -66,7 +78,9 @@ export function PurchasePanel({
         options: variant.options,
         image: product.image,
         price: variant.price,
-        stock: variant.stock,
+        stock: limit,
+        preorder: Boolean(preorder) || undefined,
+        ready: preorder ? variant.stock : undefined,
         details: details.trim() || undefined,
       },
       Math.min(qty, maxQty),
@@ -91,7 +105,9 @@ export function PurchasePanel({
   const freeDelivery = shipping.freeOver != null && total >= shipping.freeOver;
   const stockNote = !variant
     ? null
-    : variant.stock === 0
+    : variant.stock === 0 && preorder
+      ? { text: "Available to pre-order", tone: "bg-info/10 text-info", dot: "bg-info" }
+      : variant.stock === 0
       ? { text: "Out of stock", tone: "bg-danger/10 text-danger", dot: "bg-danger" }
       : variant.stock <= 3
         ? { text: `Only ${variant.stock} left`, tone: "bg-warning/10 text-warning", dot: "bg-warning" }
@@ -101,13 +117,13 @@ export function PurchasePanel({
     <>
       <Check className="size-4" /> Added to cart
     </>
-  ) : !variant || variant.stock === 0 ? (
+  ) : !variant || (variant.stock === 0 && !preorder) ? (
     "Out of stock"
   ) : maxQty < 1 ? (
     "All stock is in your cart"
   ) : (
     <>
-      <ShoppingBag className="size-4" /> Add to cart
+      {isPreorder ? <Clock className="size-4" /> : <ShoppingBag className="size-4" />} {isPreorder ? "Pre-order" : "Add to cart"}
     </>
   );
 
@@ -142,8 +158,32 @@ export function PurchasePanel({
             </p>
           )}
         </div>
+        {deals.length > 0 && (
+          <ul className="mt-4 grid gap-2">
+            {deals.map((d) => (
+              <li key={d.id} className="flex items-start gap-2 rounded-lg border border-accent/25 bg-accent/5 px-3 py-2 text-sm">
+                <Tag className="mt-0.5 size-4 shrink-0 text-accent" />
+                <span>
+                  <span className="font-semibold">{d.rule}</span>
+                  {d.name !== d.rule && <span className="text-ink-soft"> · {d.name}</span>}
+                  <span className="block text-xs text-ink-soft">Mix and match. The discount is added in your cart automatically.</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="mt-3 text-sm text-ink-soft">Delivery charge is added at checkout.</p>
       </div>
+      {preorder && variant && (variant.stock === 0 || isPreorder) && (
+        <p className="-mt-2 flex items-start gap-2 rounded-xl bg-info/5 px-4 py-3 text-sm text-ink-soft">
+          <Clock className="mt-0.5 size-4 shrink-0 text-info" />
+          <span>
+            <span className="font-medium text-ink">Pre-order: </span>
+            {variant.stock > 0 ? `Only ${variant.stock} ready now. The rest is printed for you` : "We print this for you after you order"}
+            {preorder.note ? ` · ${preorder.note}` : "."}
+          </span>
+        </p>
+      )}
 
       {/* Options */}
       {optionNames.map((name) => {
@@ -214,8 +254,13 @@ export function PurchasePanel({
           </div>
         </div>
         {canBuy && (
-          <p className="text-sm text-ink-soft">
+          <p className="text-right text-sm text-ink-soft">
             Total <span className="ml-1 text-lg font-semibold text-ink tabular-nums">{formatBDT(total)}</span>
+            {pointsPer && Math.floor(total / pointsPer) > 0 && (
+              <span className="mt-0.5 flex items-center justify-end gap-1 text-xs">
+                <Gift className="size-3.5 text-accent" /> Earn {Math.floor(total / pointsPer)} points
+              </span>
+            )}
           </p>
         )}
       </div>
@@ -249,6 +294,8 @@ export function PurchasePanel({
         )}
       </div>
 
+      {variant && variant.stock === 0 && !preorder && <StockAlert variantId={variant.id} key={variant.id} />}
+
       {/* Delivery and payment */}
       <ul className="grid gap-3 rounded-2xl border border-line p-5 text-sm">
         <li className="flex gap-3">
@@ -270,5 +317,55 @@ export function PurchasePanel({
         </li>
       </ul>
     </div>
+  );
+}
+
+/** "Text me when it's back": saves the phone number for a back-in-stock SMS. */
+function StockAlert({ variantId }: { variantId: string }) {
+  const [phone, setPhone] = useState("");
+  const [state, setState] = useState<"idle" | "saving" | "done">("idle");
+  const [error, setError] = useState("");
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!/^(?:\+?88)?01[3-9]\d{8}$/.test(phone.replace(/[\s-]/g, ""))) return setError("Enter a valid mobile number (01XXXXXXXXX)");
+    setState("saving");
+    const { error: err } = await createClient().rpc("request_stock_alert", { p_variant: variantId, p_phone: phone });
+    if (err) {
+      setState("idle");
+      return setError(/valid mobile|not available|many items/i.test(err.message) ? err.message : "Couldn't save that, please try again");
+    }
+    setState("done");
+  };
+
+  if (state === "done") {
+    return (
+      <p className="flex items-center gap-2 rounded-2xl border border-success/25 bg-success/5 p-4 text-sm">
+        <Check className="size-4 text-success" /> Done. We&apos;ll text you as soon as it&apos;s back in stock.
+      </p>
+    );
+  }
+  return (
+    <form onSubmit={submit} className="rounded-2xl border border-line p-4" noValidate>
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <Bell className="size-4 text-accent" /> Get an SMS when it&apos;s back
+      </p>
+      <div className="mt-3 flex gap-2">
+        <input
+          type="tel"
+          inputMode="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="01XXXXXXXXX"
+          aria-label="Mobile number"
+          className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-3.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+        />
+        <Button type="submit" variant="secondary" className="h-11" disabled={state === "saving"}>
+          {state === "saving" ? <Loader2 className="size-4 animate-spin" /> : "Notify me"}
+        </Button>
+      </div>
+      {error && <p className="mt-2 text-sm text-danger" role="alert">{error}</p>}
+    </form>
   );
 }

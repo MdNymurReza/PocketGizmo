@@ -7,7 +7,7 @@ export const getStoreSettings = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("settings")
-    .select("store_name, shipping_inside_dhaka, shipping_outside_dhaka, free_shipping_over, contact_phone, contact_email, facebook_url, cod_advance")
+    .select("store_name, shipping_inside_dhaka, shipping_outside_dhaka, free_shipping_over, contact_phone, contact_email, facebook_url, cod_advance, whatsapp_number, messenger_url")
     .eq("id", 1)
     .single();
   return {
@@ -19,5 +19,29 @@ export const getStoreSettings = cache(async () => {
     email: data?.contact_email ?? null,
     facebook: data?.facebook_url ?? null,
     codAdvance: data?.cod_advance ?? "off",
+    whatsappLink: whatsappLink(data?.whatsapp_number || data?.contact_phone),
+    messengerLink: messengerLink(data?.messenger_url || data?.facebook_url),
   };
 });
+
+/** wa.me link for a Bangladeshi mobile number. */
+function whatsappLink(phone: string | null | undefined) {
+  const d = (phone ?? "").replace(/\D/g, "").slice(-11);
+  return /^01[3-9]\d{8}$/.test(d) ? `https://wa.me/88${d}` : null;
+}
+
+/** m.me link from a Messenger link, or from the Facebook page address (facebook.com/yourpage). */
+function messengerLink(url: string | null | undefined) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.hostname === "m.me" || u.hostname.endsWith("messenger.com")) return u.toString();
+    if (!/(^|\.)facebook\.com$|(^|\.)fb\.com$/.test(u.hostname)) return null;
+    const id = u.searchParams.get("id");
+    if (u.pathname.startsWith("/profile.php") && id) return `https://m.me/${id}`;
+    const page = u.pathname.split("/").filter(Boolean)[0];
+    return page && !["pages", "groups", "share"].includes(page) ? `https://m.me/${page}` : null;
+  } catch {
+    return null;
+  }
+}

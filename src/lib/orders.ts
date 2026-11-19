@@ -18,7 +18,15 @@ export type TrackedOrder = {
   advance_amount: number;
   advance_method: Enums<"payment_method"> | null;
   advance_status: "none" | "pending" | "verified" | "rejected";
-  items: { name: string; options: Record<string, string>; image: string | null; unit_price: number; quantity: number; line_total: number; details?: string | null }[];
+  deal_name?: string | null;
+  deal_discount?: number;
+  coupon_code?: string | null;
+  gift_wrap?: boolean;
+  gift_message?: string | null;
+  gift_fee?: number;
+  points_used?: number;
+  points_discount?: number;
+  items: { name: string; options: Record<string, string>; image: string | null; unit_price: number; quantity: number; line_total: number; details?: string | null; preorder_qty?: number }[];
   history: { status: Enums<"order_status">; note: string | null; created_at: string }[];
 };
 

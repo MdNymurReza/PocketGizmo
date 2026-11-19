@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { AnimatePresence, motion } from "motion/react";
-import { Minus, Plus, ShoppingBag, Truck, X } from "lucide-react";
-import { DETAILS_MAX, cartSubtotal, useCart } from "@/lib/cart-store";
+import { Minus, Plus, ShoppingBag, Tag, Truck, X } from "lucide-react";
+import { DETAILS_MAX, cartSubtotal, useCart, preorderCount } from "@/lib/cart-store";
 import { useCartSync } from "@/lib/use-cart-sync";
 import { ButtonLink } from "@/components/ui";
 import { ProductImage } from "./product-image";
@@ -16,6 +18,25 @@ export function CartView({ freeOver }: { freeOver: number | null }) {
   const setQty = useCart((s) => s.setQty);
   const remove = useCart((s) => s.remove);
   const setDetails = useCart((s) => s.setDetails);
+  const [deal, setDeal] = useState<{ name: string; discount: number } | null>(null);
+  const itemsKey = items.map((i) => `${i.variantId}:${i.quantity}`).join(",");
+
+  // The best "buy 2 get 1" or bundle deal for what's in the cart, worked out by the database.
+  useEffect(() => {
+    if (!ready || !itemsKey) return setDeal(null);
+    let cancelled = false;
+    const list = useCart.getState().items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity }));
+    createClient()
+      .rpc("compute_deal_discount", { p_items: list })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const best = data?.[0];
+        setDeal(best && Number(best.discount) > 0 ? { name: best.deal_name ?? "Deal", discount: Number(best.discount) } : null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, itemsKey]);
 
   if (!ready) {
     return (
@@ -48,7 +69,8 @@ export function CartView({ freeOver }: { freeOver: number | null }) {
   }
 
   const subtotal = cartSubtotal(items);
-  const toFree = freeOver != null && freeOver > 0 ? Math.max(0, freeOver - subtotal) : null;
+  const dealOff = deal ? Math.min(deal.discount, subtotal) : 0;
+  const toFree = freeOver != null && freeOver > 0 ? Math.max(0, freeOver - (subtotal - dealOff)) : null;
 
   return (
     <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_360px]">
@@ -70,6 +92,7 @@ export function CartView({ freeOver }: { freeOver: number | null }) {
                   <Link href={`/product/${i.slug}`} className="font-medium hover:underline">{i.name}</Link>
                   {variantLabel(i.options) && <p className="mt-0.5 text-sm text-ink-soft">{variantLabel(i.options)}</p>}
                   <p className="mt-0.5 text-sm text-ink-soft">{formatBDT(i.price)} each</p>
+                  {preorderCount(i) > 0 && <p className="mt-0.5 text-xs font-medium text-info">Pre-order: {preorderCount(i)} printed after you order</p>}
                 </div>
                 <button onClick={() => remove(i.variantId)} className="rounded-md p-1 text-ink-soft hover:bg-surface hover:text-ink" aria-label={`Remove ${i.name}`}>
                   <X className="size-4" />
@@ -115,7 +138,7 @@ export function CartView({ freeOver }: { freeOver: number | null }) {
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
               <div
                 className={toFree === 0 ? "h-full rounded-full bg-success" : "h-full rounded-full bg-accent"}
-                style={{ width: `${Math.min(100, (subtotal / freeOver) * 100)}%` }}
+                style={{ width: `${Math.min(100, ((subtotal - dealOff) / freeOver) * 100)}%` }}
               />
             </div>
           </div>
@@ -125,13 +148,19 @@ export function CartView({ freeOver }: { freeOver: number | null }) {
             <dt className="text-ink-soft">Subtotal</dt>
             <dd className="font-medium tabular-nums">{formatBDT(subtotal)}</dd>
           </div>
+          {deal && dealOff > 0 && (
+            <div className="flex justify-between gap-3 text-success">
+              <dt className="flex items-center gap-1.5"><Tag className="size-3.5" /> {deal.name}</dt>
+              <dd className="tabular-nums">−{formatBDT(dealOff)}</dd>
+            </div>
+          )}
           <div className="flex justify-between">
             <dt className="text-ink-soft">Delivery</dt>
             <dd className="text-ink-soft">{toFree === 0 ? "Free" : "Calculated at checkout"}</dd>
           </div>
           <div className="flex justify-between border-t border-line pt-3 text-base">
             <dt className="font-medium">Estimated total</dt>
-            <dd className="font-semibold tabular-nums">{formatBDT(subtotal)}</dd>
+            <dd className="font-semibold tabular-nums">{formatBDT(subtotal - dealOff)}</dd>
           </div>
         </dl>
         <ButtonLink href="/checkout" size="lg" className="mt-6 w-full" aria-disabled={!synced}>

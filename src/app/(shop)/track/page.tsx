@@ -74,7 +74,7 @@ export default async function TrackPage({ searchParams }: { searchParams: Promis
       {result && (
         <div className="mt-12">
           <h2 className="mb-6 text-xl font-semibold">Order {result.order_number}</h2>
-          <OrderDetails order={result} />
+          <OrderDetails order={result} receiptQuery={`p=${phoneDigits}`} />
         </div>
       )}
     </div>

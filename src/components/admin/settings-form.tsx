@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CircleAlert } from "lucide-react";
+import { CheckCircle2, CircleAlert, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { saveSettings } from "@/app/admin/settings/actions";
-import { Button, Card, Field, Input, Textarea } from "@/components/ui";
+import { saveSettings, sendTestSms } from "@/app/admin/settings/actions";
+import { Button, Card, Checkbox, Field, Input, Textarea } from "@/components/ui";
+import { cn, formatDate } from "@/lib/utils";
 
 type Values = {
   store_name: string;
@@ -20,6 +21,23 @@ type Values = {
   contact_email: string;
   facebook_url: string;
   cod_advance: "off" | "outside_dhaka" | "all";
+  whatsapp_number: string;
+  messenger_url: string;
+  gift_enabled: boolean;
+  gift_wrap_fee: string;
+  sms_enabled: boolean;
+  sms_events: string[];
+  points_enabled: boolean;
+  points_spend_per_point: string;
+  points_review: string;
+  points_max_pct: string;
+};
+
+type Status = {
+  smsReady: boolean;
+  steadfastReady: boolean;
+  smsEvents: readonly { key: string; label: string }[];
+  smsLog: { id: string; phone: string; event: string; ok: boolean; error: string | null; created_at: string }[];
 };
 
 const COD_ADVANCE_OPTIONS = [
@@ -30,7 +48,7 @@ const COD_ADVANCE_OPTIONS = [
 
 const PLACEHOLDER = /X{4,}/i;
 
-export function SettingsForm({ initial }: { initial: Values }) {
+export function SettingsForm({ initial, status }: { initial: Values; status: Status }) {
   const router = useRouter();
   const [v, setV] = useState(initial);
   const [pending, start] = useTransition();
@@ -143,9 +161,139 @@ export function SettingsForm({ initial }: { initial: Values }) {
         </div>
       </Card>
 
+      <Card>
+        <h2 className="font-semibold">Chat button</h2>
+        <p className="mt-1 text-sm text-ink-soft">
+          The round button on every shop page. Leave these blank to use the contact phone and the Facebook page above.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Field label="WhatsApp number">
+            <Input value={v.whatsapp_number} onChange={set("whatsapp_number")} type="tel" placeholder={v.contact_phone || "01XXXXXXXXX"} />
+          </Field>
+          <Field label="Messenger link" hint="e.g. https://m.me/yourpage">
+            <Input value={v.messenger_url} onChange={set("messenger_url")} placeholder="https://m.me/…" />
+          </Field>
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="font-semibold">Gift wrap</h2>
+        <div className="mt-4 grid items-end gap-4 sm:grid-cols-2">
+          <Checkbox label="Offer gift wrap at checkout" checked={v.gift_enabled} onChange={(e) => setV((x) => ({ ...x, gift_enabled: e.target.checked }))} />
+          <Field label="Gift wrap charge (৳)" hint="0 = free">
+            <Input type="number" min={0} value={v.gift_wrap_fee} onChange={set("gift_wrap_fee")} disabled={!v.gift_enabled} />
+          </Field>
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="font-semibold">Loyalty points</h2>
+        <p className="mt-1 text-sm text-ink-soft">
+          Logged-in customers earn points when an order is delivered and when a review is approved. 1 point = ৳1 off a later order.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Checkbox label="Loyalty points are on" checked={v.points_enabled} onChange={(e) => setV((x) => ({ ...x, points_enabled: e.target.checked }))} />
+          <Field label="1 point for every (৳ spent)">
+            <Input type="number" min={1} value={v.points_spend_per_point} onChange={set("points_spend_per_point")} disabled={!v.points_enabled} />
+          </Field>
+          <Field label="Points for an approved review">
+            <Input type="number" min={0} value={v.points_review} onChange={set("points_review")} disabled={!v.points_enabled} />
+          </Field>
+          <Field label="Points can pay up to (% of the order)">
+            <Input type="number" min={0} max={100} value={v.points_max_pct} onChange={set("points_max_pct")} disabled={!v.points_enabled} />
+          </Field>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold">SMS to customers</h2>
+          <Ready ok={status.smsReady} on="BulkSMSBD connected" off="BulkSMSBD keys missing" />
+        </div>
+        <p className="mt-1 text-sm text-ink-soft">
+          Sent through BulkSMSBD. Needs BULKSMSBD_API_KEY and BULKSMSBD_SENDER_ID in the server environment.
+        </p>
+        <div className="mt-4 grid gap-3">
+          <Checkbox label="Send SMS updates" checked={v.sms_enabled} onChange={(e) => setV((x) => ({ ...x, sms_enabled: e.target.checked }))} />
+          <fieldset className="grid gap-2 sm:grid-cols-3" disabled={!v.sms_enabled}>
+            <legend className="mb-2 text-sm text-ink-soft">Text the customer when:</legend>
+            {status.smsEvents.map((ev) => (
+              <label key={ev.key} className={cn("inline-flex items-center gap-2 text-sm", !v.sms_enabled && "opacity-50")}>
+                <input
+                  type="checkbox"
+                  className="size-4 accent-accent"
+                  checked={v.sms_events.includes(ev.key)}
+                  onChange={(e) =>
+                    setV((x) => ({ ...x, sms_events: e.target.checked ? [...x.sms_events, ev.key] : x.sms_events.filter((k) => k !== ev.key) }))
+                  }
+                />
+                {ev.label}
+              </label>
+            ))}
+          </fieldset>
+          <TestSms disabled={!status.smsReady} />
+          {status.smsLog.length > 0 && (
+            <div className="mt-2">
+              <p className="text-sm font-medium">Recent messages</p>
+              <ul className="mt-2 divide-y divide-line rounded-lg border border-line text-sm">
+                {status.smsLog.map((m) => (
+                  <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                    <span>
+                      <span className="font-mono">{m.phone}</span> <span className="text-ink-soft">· {m.event.replace(/_/g, " ")}</span>
+                    </span>
+                    <span className={cn("text-xs", m.ok ? "text-success" : "text-danger")}>
+                      {m.ok ? "Sent" : m.error ?? "Failed"} · {formatDate(m.created_at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold">Steadfast courier</h2>
+          <Ready ok={status.steadfastReady} on="Connected" off="Keys missing" />
+        </div>
+        <p className="mt-1 text-sm text-ink-soft">
+          Book a parcel from any order page in one click. Add STEADFAST_API_KEY and STEADFAST_SECRET_KEY (Steadfast merchant panel → API) to the server environment.
+        </p>
+      </Card>
+
       <div>
         <Button type="submit" size="lg" disabled={pending}>{pending ? "Saving…" : "Save settings"}</Button>
       </div>
     </form>
+  );
+}
+
+function Ready({ ok, on, off }: { ok: boolean; on: string; off: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium", ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning")}>
+      {ok ? <CheckCircle2 className="size-3.5" /> : <CircleAlert className="size-3.5" />} {ok ? on : off}
+    </span>
+  );
+}
+
+function TestSms({ disabled }: { disabled: boolean }) {
+  const [phone, setPhone] = useState("");
+  const [pending, start] = useTransition();
+  const send = () =>
+    start(async () => {
+      const res = await sendTestSms(phone);
+      if (res.error) return void toast.error(res.error);
+      toast.success("Test SMS sent");
+    });
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <Field label="Send a test SMS to" className="min-w-0 flex-1">
+        <Input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" placeholder="01XXXXXXXXX" disabled={disabled} />
+      </Field>
+      <Button type="button" variant="secondary" onClick={send} disabled={disabled || pending || !phone.trim()}>
+        {pending ? <Loader2 className="size-4 animate-spin" /> : "Send test"}
+      </Button>
+    </div>
   );
 }

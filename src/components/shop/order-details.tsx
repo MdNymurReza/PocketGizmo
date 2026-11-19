@@ -1,4 +1,6 @@
+import { Download, Gift } from "lucide-react";
 import type { TrackedOrder } from "@/lib/orders";
+import { steadfastTrackingUrl } from "@/lib/steadfast";
 import { ADVANCE_STATUS_COLOR, ADVANCE_STATUS_LABEL, PAYMENT_STATUS_COLOR, PAYMENT_STATUS_LABEL } from "@/lib/orders";
 import { Badge } from "@/components/ui";
 import { CopyButton } from "@/components/copy-button";
@@ -8,7 +10,8 @@ import { OrderProgress } from "./order-progress";
 import { PAYMENT_LABEL, formatBDT, formatDate, variantLabel } from "@/lib/utils";
 
 /** Shared order view used by the confirmation, tracking and account pages. */
-export async function OrderDetails({ order }: { order: TrackedOrder }) {
+export async function OrderDetails({ order, receiptQuery }: { order: TrackedOrder; receiptQuery?: string }) {
+  const receipt = receiptQuery ? `/api/receipt/${encodeURIComponent(order.order_number)}?${receiptQuery}` : null;
   const store = await getStoreSettings();
   return (
     <div className="@container">
@@ -22,6 +25,11 @@ export async function OrderDetails({ order }: { order: TrackedOrder }) {
               Shipped with <strong>{order.courier ?? "courier"}</strong>, tracking code{" "}
               <span className="font-mono font-medium">{order.tracking_code}</span>
               <CopyButton value={order.tracking_code} label="Copy tracking code" />
+              {order.courier === "Steadfast" && (
+                <a href={steadfastTrackingUrl(order.tracking_code)} target="_blank" rel="noopener noreferrer" className="ml-2 font-medium text-accent hover:underline">
+                  Track parcel ↗
+                </a>
+              )}
             </p>
           )}
         </section>
@@ -39,6 +47,7 @@ export async function OrderDetails({ order }: { order: TrackedOrder }) {
                     {variantLabel(it.options) && " · "}Qty {it.quantity}
                   </p>
                   {it.details && <p className="mt-0.5 break-words text-ink-soft">Details: {it.details}</p>}
+                  {!!it.preorder_qty && <p className="mt-0.5 text-xs font-medium text-info">Pre-order: {it.preorder_qty} printed for you</p>}
                 </div>
                 <span className="text-sm tabular-nums">{formatBDT(it.line_total)}</span>
               </li>
@@ -53,14 +62,35 @@ export async function OrderDetails({ order }: { order: TrackedOrder }) {
           <dl className="mt-4 grid gap-2.5 text-sm">
             <Row label="Placed" value={formatDate(order.created_at)} />
             <Row label="Subtotal" value={formatBDT(order.subtotal)} />
-            {Number(order.discount) > 0 && <Row label="Discount" value={`−${formatBDT(order.discount)}`} />}
+            {Number(order.deal_discount) > 0 && <Row label={order.deal_name ? `Deal: ${order.deal_name}` : "Deal"} value={`−${formatBDT(Number(order.deal_discount))}`} />}
+            {Number(order.discount) > 0 && <Row label={order.coupon_code ? `Coupon ${order.coupon_code}` : "Discount"} value={`−${formatBDT(order.discount)}`} />}
+            {Number(order.points_discount) > 0 && <Row label={`Points (${order.points_used})`} value={`−${formatBDT(Number(order.points_discount))}`} />}
+            {Number(order.gift_fee) > 0 && <Row label="Gift wrap" value={formatBDT(Number(order.gift_fee))} />}
             <Row label="Delivery" value={Number(order.shipping_fee) === 0 ? "Free" : formatBDT(order.shipping_fee)} />
             <div className="mt-2 flex justify-between border-t border-line pt-3 text-base">
               <dt className="font-medium">Total</dt>
               <dd className="font-semibold tabular-nums">{formatBDT(order.total)}</dd>
             </div>
           </dl>
+          {receipt && (
+            <div className="mt-5 grid gap-2 border-t border-line pt-4">
+              <a href={receipt} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-white text-sm font-medium ring-1 ring-line hover:ring-ink/30">
+                <Download className="size-4" /> Download receipt (PDF)
+              </a>
+              {order.gift_wrap && (
+                <a href={`${receipt}&gift=1`} className="inline-flex h-9 items-center justify-center gap-2 text-sm text-ink-soft hover:text-ink">
+                  <Gift className="size-4" /> Gift receipt without prices
+                </a>
+              )}
+            </div>
+          )}
         </section>
+        {order.gift_wrap && (
+          <section className="rounded-xl border border-accent/25 bg-accent/5 p-6 text-sm">
+            <h2 className="flex items-center gap-2 font-semibold"><Gift className="size-4 text-accent" /> Gift wrapped</h2>
+            {order.gift_message ? <p className="mt-2 break-words text-ink-soft">&ldquo;{order.gift_message}&rdquo;</p> : <p className="mt-2 text-ink-soft">No message.</p>}
+          </section>
+        )}
         <section className="rounded-xl border border-line p-6 text-sm">
           <h2 className="font-semibold">Payment</h2>
           <p className="mt-2 flex items-center justify-between gap-2">

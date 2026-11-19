@@ -110,3 +110,43 @@ export async function getRelated(productId: string, categoryId: string | null, l
     .limit(limit - same.length);
   return [...same, ...(more ?? [])] as CardProduct[];
 }
+
+export type LiveCollection = { id: string; slug: string; title: string; subtitle: string | null; banner_image: string | null; coupon_code: string | null; ends_at: string | null };
+
+/** Collections that are switched on and inside their dates, for the home page. */
+export async function getLiveCollections() {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  const { data } = await supabase
+    .from("collections")
+    .select("id, slug, title, subtitle, banner_image, coupon_code, ends_at")
+    .eq("is_active", true)
+    .or(`starts_at.is.null,starts_at.lte.${now}`)
+    .or(`ends_at.is.null,ends_at.gt.${now}`)
+    .order("sort_order")
+    .limit(6);
+  return (data ?? []) as LiveCollection[];
+}
+
+/** One collection with its products in the chosen order. Admins can preview hidden or ended ones. */
+export async function getCollection(slug: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("collections")
+    .select("id, slug, title, subtitle, banner_image, coupon_code, starts_at, ends_at, is_active, collection_products(sort_order, products(" + CARD_SELECT + ", is_active))")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!data) return null;
+  const c = data as unknown as LiveCollection & {
+    starts_at: string | null;
+    is_active: boolean;
+    collection_products: { sort_order: number; products: (CardProduct & { is_active: boolean }) | null }[];
+  };
+  const products = [...c.collection_products]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((cp) => cp.products)
+    .filter((p): p is CardProduct & { is_active: boolean } => Boolean(p?.is_active));
+  const now = Date.now();
+  const live = c.is_active && (!c.starts_at || Date.parse(c.starts_at) <= now) && (!c.ends_at || Date.parse(c.ends_at) > now);
+  return { ...c, products, live };
+}

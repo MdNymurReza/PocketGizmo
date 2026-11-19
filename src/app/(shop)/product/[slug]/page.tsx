@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ReviewsSection } from "@/components/shop/reviews-section";
 import { Stars } from "@/components/shop/stars";
 import { WishlistButton } from "@/components/shop/wishlist-button";
+import { DEAL_SELECT, dealCovers, dealRule, isLive, type Deal } from "@/lib/deals";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -39,7 +40,7 @@ export default async function ProductPage({ params }: Props) {
   const product = await getProductBySlug(slug);
   if (!product || product.product_variants.length === 0) notFound();
   const supabase = await createClient();
-  const [related, settings, { data: filaments }, { data: savedRow }, { data: reviewRows }] = await Promise.all([
+  const [related, settings, { data: filaments }, { data: savedRow }, { data: reviewRows }, { data: dealRows }, { data: points }] = await Promise.all([
     getRelated(product.id, product.category_id),
     getStoreSettings(),
     supabase.from("filaments").select("color, hex"),
@@ -53,7 +54,12 @@ export default async function ProductPage({ params }: Props) {
       .eq("status", "approved")
       .order("created_at", { ascending: false })
       .limit(200),
+    supabase.from("deals").select(DEAL_SELECT).eq("active", true),
+    supabase.from("settings").select("points_enabled, points_spend_per_point").eq("id", 1).single(),
   ]);
+  const deals = ((dealRows ?? []) as Deal[])
+    .filter((d) => isLive(d) && dealCovers(d, product))
+    .map((d) => ({ id: d.id, name: d.name, rule: dealRule(d) }));
   const reviews = reviewRows ?? [];
   const colorHex = Object.fromEntries((filaments ?? []).map((f) => [f.color.trim().toLowerCase(), f.hex]));
   const ratingAvg = reviews.length ? reviews.reduce((n, r) => n + r.rating, 0) / reviews.length : 0;
@@ -127,6 +133,9 @@ export default async function ProductPage({ params }: Props) {
               compareAt={product.compare_at_price ? Number(product.compare_at_price) : null}
               shipping={{ insideDhaka: settings.insideDhaka, outsideDhaka: settings.outsideDhaka, freeOver: settings.freeOver }}
               colorHex={colorHex}
+              preorder={product.preorder_enabled ? { note: product.preorder_note } : null}
+              deals={deals}
+              pointsPer={points?.points_enabled ? Number(points.points_spend_per_point) : null}
             />
           </div>
 

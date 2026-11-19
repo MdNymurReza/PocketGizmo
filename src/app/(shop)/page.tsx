@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Banknote, Layers, ShieldCheck, Truck } from "lucide-react";
-import { getCategories, getFeatured } from "@/lib/queries";
+import { getCategories, getFeatured, getLiveCollections } from "@/lib/queries";
+import { Countdown } from "@/components/shop/countdown";
 import { ButtonLink, EmptyState, Logo } from "@/components/ui";
 import { ProductGrid } from "@/components/shop/product-card";
 import { ProductImage } from "@/components/shop/product-image";
@@ -20,7 +21,7 @@ const HOW_IT_WORKS = [
 ];
 
 export default async function HomePage() {
-  const [featured, categories] = await Promise.all([getFeatured(8), getCategories()]);
+  const [featured, categories, collections] = await Promise.all([getFeatured(8), getCategories(), getLiveCollections()]);
   const heroProducts = featured.slice(0, 3);
 
   return (
@@ -123,6 +124,35 @@ export default async function HomePage() {
           ))}
         </Stagger>
       </section>
+
+      {/* Occasion collections */}
+      {collections.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pt-20 sm:px-6">
+          <Reveal>
+            <SectionHeading title="Shop the occasion" href={`/collections/${collections[0].slug}`} linkLabel="See the collection" />
+          </Reveal>
+          <Stagger className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {collections.map((c) => (
+              <StaggerItem key={c.id}>
+                <Link
+                  href={`/collections/${c.slug}`}
+                  className="group relative isolate flex min-h-44 flex-col justify-end overflow-hidden rounded-xl border border-line bg-surface p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_-14px_rgba(11,11,15,0.25)]"
+                >
+                  {c.banner_image && (
+                    <ProductImage src={c.banner_image} alt="" sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="absolute inset-0 -z-10 opacity-30 transition-opacity group-hover:opacity-40" />
+                  )}
+                  <span className="text-lg font-semibold">{c.title}</span>
+                  {c.subtitle && <span className="mt-1 line-clamp-2 text-sm text-ink-soft">{c.subtitle}</span>}
+                  <span className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
+                    {c.ends_at && <Countdown to={c.ends_at} className="rounded-full bg-white px-2.5 py-1 ring-1 ring-line" />}
+                    {c.coupon_code && <span className="rounded-full bg-accent/10 px-2.5 py-1 font-mono text-accent">{c.coupon_code}</span>}
+                  </span>
+                </Link>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </section>
+      )}
 
       {/* Categories */}
       {categories.length > 0 && (

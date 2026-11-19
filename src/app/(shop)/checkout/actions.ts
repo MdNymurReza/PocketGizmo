@@ -7,6 +7,7 @@ import { BD_PHONE_RE, normalizePhone } from "@/lib/bd";
 import { CAPTCHA_ERROR, verifyCaptcha } from "@/lib/turnstile";
 import { esc, notifyAdmin, siteUrl } from "@/lib/notify";
 import { PAYMENT_LABEL, formatBDT } from "@/lib/utils";
+import { smsOrderPlaced } from "@/lib/sms";
 
 const itemsSchema = z
   .array(z.object({ variant_id: z.uuid(), quantity: z.number().int().min(1).max(99), details: z.string().trim().max(300).optional() }))
@@ -45,6 +46,10 @@ const orderSchema = z
     zone: z.enum(["inside_dhaka", "outside_dhaka"]),
     note: z.string().max(500).optional(),
     coupon: z.string().max(40).optional(),
+    points: z.number().int().min(0).max(1_000_000).optional(),
+    giftWrap: z.boolean().optional(),
+    giftMessage: z.string().max(200).optional(),
+    giftHidePrices: z.boolean().optional(),
     payment: z.enum(["cod", "bkash", "nagad", "rocket"]),
     /** Wallet used to pay the delivery charge in advance on a COD order. */
     advance: z.enum(["bkash", "nagad", "rocket"]).optional(),
@@ -92,10 +97,14 @@ export async function placeOrder(input: OrderInput): Promise<OrderResult> {
     p_sender_number: usesWallet ? normalizePhone(o.sender ?? "") : "",
     p_trx_id: usesWallet ? (o.trx ?? "") : "",
     p_advance_method: o.payment === "cod" ? o.advance : undefined,
+    p_points: o.points ?? 0,
+    p_gift_wrap: o.giftWrap ?? false,
+    p_gift_message: o.giftMessage ?? "",
+    p_gift_hide_prices: o.giftHidePrices ?? false,
   });
   if (error) {
     // Messages raised by place_order are written for customers; hide anything else.
-    const known = /cart|available|Only \d+ left|coupon|Minimum order|expired|usage limit|Transaction ID|required|quantity|delivery charge|this number/i;
+    const known = /cart|available|Only \d+ left|coupon|Minimum order|expired|usage limit|Transaction ID|required|quantity|delivery charge|this number|points/i;
     return { ok: false, error: known.test(error.message) ? error.message : "Something went wrong placing your order. Please try again." };
   }
   const row = data?.[0];
@@ -121,6 +130,11 @@ export async function placeOrder(input: OrderInput): Promise<OrderResult> {
 
   // Alert the store owner after the response is sent, so checkout stays fast.
   after(() => notifyNewOrder(row.order_number, o));
+  after(async () => {
+    const { data: tracked } = await supabase.rpc("track_order", { p_order_number: row.order_number, p_phone: "", p_token: row.tracking_token });
+    const total = Number((tracked as { total?: number } | null)?.total ?? 0);
+    await smsOrderPlaced(supabase, row.tracking_token, { order_number: row.order_number, customer_phone: normalizePhone(o.phone), total });
+  });
 
   return { ok: true, orderNumber: row.order_number, token: row.tracking_token };
 }

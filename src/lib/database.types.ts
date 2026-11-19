@@ -7,6 +7,42 @@ export type Database = {
   __InternalSupabase: { PostgrestVersion: "14.18" };
   public: {
     Tables: {
+      deals: {
+        Row: { id: string; name: string; kind: E["deal_kind"]; buy_qty: number | null; get_qty: number | null; bundle_qty: number | null; bundle_price: number | null; category_id: string | null; product_ids: string[]; starts_at: string | null; ends_at: string | null; active: boolean; created_at: string };
+        Insert: { id?: string; name: string; kind: E["deal_kind"]; buy_qty?: number | null; get_qty?: number | null; bundle_qty?: number | null; bundle_price?: number | null; category_id?: string | null; product_ids?: string[]; starts_at?: string | null; ends_at?: string | null; active?: boolean; created_at?: string };
+        Update: { id?: string; name?: string; kind?: E["deal_kind"]; buy_qty?: number | null; get_qty?: number | null; bundle_qty?: number | null; bundle_price?: number | null; category_id?: string | null; product_ids?: string[]; starts_at?: string | null; ends_at?: string | null; active?: boolean; created_at?: string };
+        Relationships: [];
+      };
+      collections: {
+        Row: { id: string; slug: string; title: string; subtitle: string | null; banner_image: string | null; coupon_code: string | null; starts_at: string | null; ends_at: string | null; is_active: boolean; sort_order: number; created_at: string };
+        Insert: { id?: string; slug: string; title: string; subtitle?: string | null; banner_image?: string | null; coupon_code?: string | null; starts_at?: string | null; ends_at?: string | null; is_active?: boolean; sort_order?: number; created_at?: string };
+        Update: { id?: string; slug?: string; title?: string; subtitle?: string | null; banner_image?: string | null; coupon_code?: string | null; starts_at?: string | null; ends_at?: string | null; is_active?: boolean; sort_order?: number; created_at?: string };
+        Relationships: [];
+      };
+      collection_products: {
+        Row: { collection_id: string; product_id: string; sort_order: number };
+        Insert: { collection_id: string; product_id: string; sort_order?: number };
+        Update: { collection_id?: string; product_id?: string; sort_order?: number };
+        Relationships: [{ foreignKeyName: "collection_products_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] }, { foreignKeyName: "collection_products_collection_id_fkey"; columns: ["collection_id"]; isOneToOne: false; referencedRelation: "collections"; referencedColumns: ["id"] }];
+      };
+      stock_alerts: {
+        Row: { id: string; variant_id: string; phone: string; user_id: string | null; created_at: string; notified_at: string | null };
+        Insert: { id?: string; variant_id: string; phone: string; user_id?: string | null; created_at?: string; notified_at?: string | null };
+        Update: { id?: string; variant_id?: string; phone?: string; user_id?: string | null; created_at?: string; notified_at?: string | null };
+        Relationships: [{ foreignKeyName: "stock_alerts_variant_id_fkey"; columns: ["variant_id"]; isOneToOne: false; referencedRelation: "product_variants"; referencedColumns: ["id"] }];
+      };
+      points_ledger: {
+        Row: { id: string; user_id: string; delta: number; reason: "earn" | "earn_reversed" | "redeem" | "redeem_refund" | "review" | "adjust"; order_id: string | null; review_id: string | null; note: string | null; created_at: string };
+        Insert: { id?: string; user_id: string; delta: number; reason: "earn" | "earn_reversed" | "redeem" | "redeem_refund" | "review" | "adjust"; order_id?: string | null; review_id?: string | null; note?: string | null; created_at?: string };
+        Update: { id?: string; user_id?: string; delta?: number; reason?: "earn" | "earn_reversed" | "redeem" | "redeem_refund" | "review" | "adjust"; order_id?: string | null; review_id?: string | null; note?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "points_ledger_order_id_fkey"; columns: ["order_id"]; isOneToOne: false; referencedRelation: "orders"; referencedColumns: ["id"] }];
+      };
+      sms_log: {
+        Row: { id: string; phone: string; event: string; order_id: string | null; message: string; ok: boolean; error: string | null; created_at: string };
+        Insert: { id?: string; phone: string; event: string; order_id?: string | null; message: string; ok: boolean; error?: string | null; created_at?: string };
+        Update: { id?: string; phone?: string; event?: string; order_id?: string | null; message?: string; ok?: boolean; error?: string | null; created_at?: string };
+        Relationships: [];
+      };
       reviews: {
         Row: { id: string; product_id: string; user_id: string; author_name: string; rating: number; comment: string; status: E["review_status"]; created_at: string; updated_at: string; photos: string[] };
         Insert: { id?: string; product_id: string; user_id: string; author_name: string; rating: number; comment?: string; status?: E["review_status"]; created_at?: string; updated_at?: string; photos?: string[] };
@@ -59,9 +95,9 @@ export type Database = {
         ];
       };
       order_items: {
-        Row: { details: string | null; id: string; image: string | null; line_total: number; order_id: string; product_id: string | null; product_name: string; quantity: number; unit_price: number; variant_id: string | null; variant_options: Json };
-        Insert: { details?: string | null; id?: string; image?: string | null; line_total: number; order_id: string; product_id?: string | null; product_name: string; quantity: number; unit_price: number; variant_id?: string | null; variant_options?: Json };
-        Update: { details?: string | null; id?: string; image?: string | null; line_total?: number; order_id?: string; product_id?: string | null; product_name?: string; quantity?: number; unit_price?: number; variant_id?: string | null; variant_options?: Json };
+        Row: { details: string | null; id: string; image: string | null; line_total: number; order_id: string; product_id: string | null; product_name: string; quantity: number; unit_price: number; variant_id: string | null; variant_options: Json; preorder_qty: number };
+        Insert: { details?: string | null; id?: string; image?: string | null; line_total: number; order_id: string; product_id?: string | null; product_name: string; quantity: number; unit_price: number; variant_id?: string | null; variant_options?: Json; preorder_qty?: number };
+        Update: { details?: string | null; id?: string; image?: string | null; line_total?: number; order_id?: string; product_id?: string | null; product_name?: string; quantity?: number; unit_price?: number; variant_id?: string | null; variant_options?: Json; preorder_qty?: number };
         Relationships: [
           { foreignKeyName: "order_items_order_id_fkey"; columns: ["order_id"]; isOneToOne: false; referencedRelation: "orders"; referencedColumns: ["id"] },
           { foreignKeyName: "order_items_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] },
@@ -77,9 +113,9 @@ export type Database = {
         ];
       };
       orders: {
-        Row: { advance_amount: number; advance_method: E["payment_method"] | null; advance_status: "none" | "pending" | "verified" | "rejected"; coupon_code: string | null; coupon_id: string | null; courier: string | null; created_at: string; customer_email: string | null; customer_name: string; customer_phone: string; discount: number; id: string; note: string | null; order_number: string; payment_method: E["payment_method"]; payment_status: E["payment_status"]; sender_number: string | null; ship_area: string; ship_district: string; ship_line: string; ship_zone: E["shipping_zone"]; shipping_fee: number; status: E["order_status"]; subtotal: number; total: number; tracking_code: string | null; tracking_token: string; trx_id: string | null; updated_at: string; user_id: string | null; print_queued_at: string | null };
-        Insert: { advance_amount?: number; advance_method?: E["payment_method"] | null; advance_status?: "none" | "pending" | "verified" | "rejected"; coupon_code?: string | null; coupon_id?: string | null; courier?: string | null; created_at?: string; customer_email?: string | null; customer_name: string; customer_phone: string; discount?: number; id?: string; note?: string | null; order_number?: string; payment_method: E["payment_method"]; payment_status: E["payment_status"]; sender_number?: string | null; ship_area: string; ship_district: string; ship_line: string; ship_zone: E["shipping_zone"]; shipping_fee: number; status?: E["order_status"]; subtotal: number; total: number; tracking_code?: string | null; tracking_token?: string; trx_id?: string | null; updated_at?: string; user_id?: string | null; print_queued_at?: string | null };
-        Update: { advance_amount?: number; advance_method?: E["payment_method"] | null; advance_status?: "none" | "pending" | "verified" | "rejected"; coupon_code?: string | null; coupon_id?: string | null; courier?: string | null; created_at?: string; customer_email?: string | null; customer_name?: string; customer_phone?: string; discount?: number; id?: string; note?: string | null; order_number?: string; payment_method?: E["payment_method"]; payment_status?: E["payment_status"]; sender_number?: string | null; ship_area?: string; ship_district?: string; ship_line?: string; ship_zone?: E["shipping_zone"]; shipping_fee?: number; status?: E["order_status"]; subtotal?: number; total?: number; tracking_code?: string | null; tracking_token?: string; trx_id?: string | null; updated_at?: string; user_id?: string | null; print_queued_at?: string | null };
+        Row: { advance_amount: number; advance_method: E["payment_method"] | null; advance_status: "none" | "pending" | "verified" | "rejected"; coupon_code: string | null; coupon_id: string | null; courier: string | null; created_at: string; customer_email: string | null; customer_name: string; customer_phone: string; discount: number; id: string; note: string | null; order_number: string; payment_method: E["payment_method"]; payment_status: E["payment_status"]; sender_number: string | null; ship_area: string; ship_district: string; ship_line: string; ship_zone: E["shipping_zone"]; shipping_fee: number; status: E["order_status"]; subtotal: number; total: number; tracking_code: string | null; tracking_token: string; trx_id: string | null; updated_at: string; user_id: string | null; print_queued_at: string | null; deal_id: string | null; deal_name: string | null; deal_discount: number; gift_wrap: boolean; gift_message: string | null; gift_hide_prices: boolean; gift_fee: number; points_used: number; points_discount: number; consignment_id: string | null };
+        Insert: { advance_amount?: number; advance_method?: E["payment_method"] | null; advance_status?: "none" | "pending" | "verified" | "rejected"; coupon_code?: string | null; coupon_id?: string | null; courier?: string | null; created_at?: string; customer_email?: string | null; customer_name: string; customer_phone: string; discount?: number; id?: string; note?: string | null; order_number?: string; payment_method: E["payment_method"]; payment_status: E["payment_status"]; sender_number?: string | null; ship_area: string; ship_district: string; ship_line: string; ship_zone: E["shipping_zone"]; shipping_fee: number; status?: E["order_status"]; subtotal: number; total: number; tracking_code?: string | null; tracking_token?: string; trx_id?: string | null; updated_at?: string; user_id?: string | null; print_queued_at?: string | null; deal_id?: string | null; deal_name?: string | null; deal_discount?: number; gift_wrap?: boolean; gift_message?: string | null; gift_hide_prices?: boolean; gift_fee?: number; points_used?: number; points_discount?: number; consignment_id?: string | null };
+        Update: { advance_amount?: number; advance_method?: E["payment_method"] | null; advance_status?: "none" | "pending" | "verified" | "rejected"; coupon_code?: string | null; coupon_id?: string | null; courier?: string | null; created_at?: string; customer_email?: string | null; customer_name?: string; customer_phone?: string; discount?: number; id?: string; note?: string | null; order_number?: string; payment_method?: E["payment_method"]; payment_status?: E["payment_status"]; sender_number?: string | null; ship_area?: string; ship_district?: string; ship_line?: string; ship_zone?: E["shipping_zone"]; shipping_fee?: number; status?: E["order_status"]; subtotal?: number; total?: number; tracking_code?: string | null; tracking_token?: string; trx_id?: string | null; updated_at?: string; user_id?: string | null; print_queued_at?: string | null; deal_id?: string | null; deal_name?: string | null; deal_discount?: number; gift_wrap?: boolean; gift_message?: string | null; gift_hide_prices?: boolean; gift_fee?: number; points_used?: number; points_discount?: number; consignment_id?: string | null };
         Relationships: [
           { foreignKeyName: "orders_coupon_id_fkey"; columns: ["coupon_id"]; isOneToOne: false; referencedRelation: "coupons"; referencedColumns: ["id"] },
         ];
@@ -93,9 +129,9 @@ export type Database = {
         ];
       };
       products: {
-        Row: { base_price: number; category_id: string | null; compare_at_price: number | null; created_at: string; description: string; featured: boolean; id: string; images: string[]; is_active: boolean; name: string; slug: string; updated_at: string };
-        Insert: { base_price: number; category_id?: string | null; compare_at_price?: number | null; created_at?: string; description?: string; featured?: boolean; id?: string; images?: string[]; is_active?: boolean; name: string; slug: string; updated_at?: string };
-        Update: { base_price?: number; category_id?: string | null; compare_at_price?: number | null; created_at?: string; description?: string; featured?: boolean; id?: string; images?: string[]; is_active?: boolean; name?: string; slug?: string; updated_at?: string };
+        Row: { base_price: number; category_id: string | null; compare_at_price: number | null; created_at: string; description: string; featured: boolean; id: string; images: string[]; is_active: boolean; name: string; slug: string; updated_at: string; preorder_enabled: boolean; preorder_note: string | null };
+        Insert: { base_price: number; category_id?: string | null; compare_at_price?: number | null; created_at?: string; description?: string; featured?: boolean; id?: string; images?: string[]; is_active?: boolean; name: string; slug: string; updated_at?: string; preorder_enabled?: boolean; preorder_note?: string | null };
+        Update: { base_price?: number; category_id?: string | null; compare_at_price?: number | null; created_at?: string; description?: string; featured?: boolean; id?: string; images?: string[]; is_active?: boolean; name?: string; slug?: string; updated_at?: string; preorder_enabled?: boolean; preorder_note?: string | null };
         Relationships: [
           { foreignKeyName: "products_category_id_fkey"; columns: ["category_id"]; isOneToOne: false; referencedRelation: "categories"; referencedColumns: ["id"] },
         ];
@@ -143,9 +179,9 @@ export type Database = {
         Relationships: [];
       };
       settings: {
-        Row: { cod_advance: "off" | "outside_dhaka" | "all"; max_print_colors: number; bkash_number: string | null; contact_email: string | null; contact_phone: string | null; facebook_url: string | null; free_shipping_over: number | null; id: number; nagad_number: string | null; payment_instructions: string; rocket_number: string | null; shipping_inside_dhaka: number; shipping_outside_dhaka: number; store_name: string; updated_at: string };
-        Insert: { cod_advance?: "off" | "outside_dhaka" | "all"; max_print_colors?: number; bkash_number?: string | null; contact_email?: string | null; contact_phone?: string | null; facebook_url?: string | null; free_shipping_over?: number | null; id?: number; nagad_number?: string | null; payment_instructions?: string; rocket_number?: string | null; shipping_inside_dhaka?: number; shipping_outside_dhaka?: number; store_name?: string; updated_at?: string };
-        Update: { cod_advance?: "off" | "outside_dhaka" | "all"; max_print_colors?: number; bkash_number?: string | null; contact_email?: string | null; contact_phone?: string | null; facebook_url?: string | null; free_shipping_over?: number | null; id?: number; nagad_number?: string | null; payment_instructions?: string; rocket_number?: string | null; shipping_inside_dhaka?: number; shipping_outside_dhaka?: number; store_name?: string; updated_at?: string };
+        Row: { cod_advance: "off" | "outside_dhaka" | "all"; max_print_colors: number; bkash_number: string | null; contact_email: string | null; contact_phone: string | null; facebook_url: string | null; free_shipping_over: number | null; id: number; nagad_number: string | null; payment_instructions: string; rocket_number: string | null; shipping_inside_dhaka: number; shipping_outside_dhaka: number; store_name: string; updated_at: string; gift_enabled: boolean; gift_wrap_fee: number; sms_enabled: boolean; sms_events: string[]; whatsapp_number: string | null; messenger_url: string | null; points_enabled: boolean; points_spend_per_point: number; points_review: number; points_max_pct: number };
+        Insert: { cod_advance?: "off" | "outside_dhaka" | "all"; max_print_colors?: number; bkash_number?: string | null; contact_email?: string | null; contact_phone?: string | null; facebook_url?: string | null; free_shipping_over?: number | null; id?: number; nagad_number?: string | null; payment_instructions?: string; rocket_number?: string | null; shipping_inside_dhaka?: number; shipping_outside_dhaka?: number; store_name?: string; updated_at?: string; gift_enabled?: boolean; gift_wrap_fee?: number; sms_enabled?: boolean; sms_events?: string[]; whatsapp_number?: string | null; messenger_url?: string | null; points_enabled?: boolean; points_spend_per_point?: number; points_review?: number; points_max_pct?: number };
+        Update: { cod_advance?: "off" | "outside_dhaka" | "all"; max_print_colors?: number; bkash_number?: string | null; contact_email?: string | null; contact_phone?: string | null; facebook_url?: string | null; free_shipping_over?: number | null; id?: number; nagad_number?: string | null; payment_instructions?: string; rocket_number?: string | null; shipping_inside_dhaka?: number; shipping_outside_dhaka?: number; store_name?: string; updated_at?: string; gift_enabled?: boolean; gift_wrap_fee?: number; sms_enabled?: boolean; sms_events?: string[]; whatsapp_number?: string | null; messenger_url?: string | null; points_enabled?: boolean; points_spend_per_point?: number; points_review?: number; points_max_pct?: number };
         Relationships: [];
       };
     };
@@ -189,8 +225,13 @@ export type Database = {
       submit_review: { Args: { p_product: string; p_rating: number; p_comment: string; p_photos?: string[] }; Returns: E["review_status"] };
       compute_coupon_discount: { Args: { p_code: string; p_subtotal: number; p_user: string }; Returns: { coupon_id: string; discount: number; error: string }[] };
       is_admin: { Args: never; Returns: boolean };
+      quote_order: { Args: { p_items: Json; p_coupon_code: string; p_zone: E["shipping_zone"]; p_points: number; p_gift: boolean }; Returns: OrderQuote };
+      request_stock_alert: { Args: { p_variant: string; p_phone: string }; Returns: undefined };
+      log_order_sms: { Args: { p_token: string; p_phone: string; p_message: string; p_ok: boolean; p_error: string }; Returns: undefined };
+      points_balance: { Args: { p_user: string }; Returns: number };
+      compute_deal_discount: { Args: { p_items: Json }; Returns: { deal_id: string | null; deal_name: string | null; discount: number }[] };
       place_order: {
-        Args: { p_area: string; p_coupon_code: string; p_customer_email: string; p_customer_name: string; p_customer_phone: string; p_district: string; p_items: Json; p_line: string; p_note: string; p_payment_method: E["payment_method"]; p_sender_number: string; p_trx_id: string; p_zone: E["shipping_zone"]; p_advance_method?: E["payment_method"] };
+        Args: { p_area: string; p_coupon_code: string; p_customer_email: string; p_customer_name: string; p_customer_phone: string; p_district: string; p_items: Json; p_line: string; p_note: string; p_payment_method: E["payment_method"]; p_sender_number: string; p_trx_id: string; p_zone: E["shipping_zone"]; p_advance_method?: E["payment_method"]; p_points?: number; p_gift_wrap?: boolean; p_gift_message?: string; p_gift_hide_prices?: boolean };
         Returns: { order_number: string; tracking_token: string }[];
       };
       respond_to_quote: { Args: { p_id: string; p_accept: boolean }; Returns: undefined };
@@ -199,6 +240,7 @@ export type Database = {
       validate_coupon: { Args: { p_code: string; p_subtotal: number }; Returns: { discount: number; error: string }[] };
     };
     Enums: {
+      deal_kind: "buy_x_get_y" | "n_for_price";
       stall_order_status: "new" | "printing" | "ready" | "delivered" | "cancelled";
       coupon_type: "percent" | "fixed";
       custom_request_status: "new" | "quoted" | "accepted" | "rejected" | "done";
@@ -217,3 +259,8 @@ export type Database = {
 
 export type Tables<T extends keyof Database["public"]["Tables"]> = Database["public"]["Tables"][T]["Row"];
 export type Enums<T extends keyof Database["public"]["Enums"]> = Database["public"]["Enums"][T];
+
+export type OrderQuote = {
+  subtotal: number; deal_name: string | null; deal_discount: number; coupon_discount: number; coupon_error: string | null;
+  shipping: number; gift_fee: number; points_balance: number; points_max: number; points_used: number; total: number; earn_points: number;
+};

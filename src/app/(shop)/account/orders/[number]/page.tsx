@@ -42,6 +42,9 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ n
     discount: Number(o.discount),
     shipping_fee: Number(o.shipping_fee),
     total: Number(o.total),
+    deal_discount: Number(o.deal_discount),
+    gift_fee: Number(o.gift_fee),
+    points_discount: Number(o.points_discount),
     items: o.order_items.map((i) => ({
       name: i.product_name,
       options: i.variant_options as Record<string, string>,
@@ -50,6 +53,7 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ n
       quantity: i.quantity,
       line_total: Number(i.line_total),
       details: i.details,
+      preorder_qty: i.preorder_qty,
     })),
     history: [...o.order_status_history].sort((a, b) => a.created_at.localeCompare(b.created_at)),
   };
@@ -87,7 +91,7 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ n
         </div>
       )}
 
-      <OrderDetails order={order} />
+      <OrderDetails order={order} receiptQuery={`t=${o.tracking_token}`} />
     </div>
   );
 }

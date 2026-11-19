@@ -1,7 +1,10 @@
 import { SiteHeader } from "@/components/shop/site-header";
 import { SiteFooter } from "@/components/shop/site-footer";
+import { ChatButton } from "@/components/shop/chat-button";
+import { getStoreSettings } from "@/lib/store-settings";
 
-export default function ShopLayout({ children }: { children: React.ReactNode }) {
+export default async function ShopLayout({ children }: { children: React.ReactNode }) {
+  const store = await getStoreSettings();
   return (
     <div className="flex min-h-dvh flex-col">
       <a
@@ -15,6 +18,7 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
         {children}
       </main>
       <SiteFooter />
+      <ChatButton whatsapp={store.whatsappLink} messenger={store.messengerLink} />
     </div>
   );
 }

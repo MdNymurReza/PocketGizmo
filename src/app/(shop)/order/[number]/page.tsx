@@ -60,7 +60,7 @@ export default async function OrderPage({
           <ButtonLink href="/shop" variant="secondary">Continue shopping</ButtonLink>
         </div>
       </div>
-      <OrderDetails order={order} />
+      <OrderDetails order={order} receiptQuery={`t=${t}`} />
       <p className="mt-8 text-sm text-ink-soft">
         Bookmark this page to check on your order, or track it any time on the <Link href="/track" className="font-medium text-ink underline underline-offset-4">Track order</Link> page with your order number and phone.
       </p>
